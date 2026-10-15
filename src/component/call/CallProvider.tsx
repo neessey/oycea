@@ -42,7 +42,6 @@ type CallStatus =
   | "connected";
 
 
-
 type CallContextType = {
   status: CallStatus;
   acceptCall: () => Promise<void>;
@@ -132,31 +131,45 @@ const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
       mountedRef.current = false;
     };
   }, [supabase]);
+const sendSignal = useCallback(
+  async (event: string, payload: Record<string, unknown> = {}) => {
+    const channel = channelRef.current;
+    const currentUserId = userIdRef.current;
 
-  const sendSignal = useCallback(
-    async (event: string, payload: Record<string, unknown> = {}) => {
-      const channel = channelRef.current;
+    if (!currentUserId) {
+      throw new Error(
+        "Utilisateur non identifié. Reconnecte-toi à Oycea."
+      );
+    }
 
-      if (!channel || !userIdRef.current) {
-        throw new Error("Le canal d'appel n'est pas prêt.");
-      }
+    if (!channel) {
+      throw new Error(
+        "Le canal Supabase est absent. Recharge la page."
+      );
+    }
 
-      const result = await channel.send({
-        type: "broadcast",
+    const result = await channel.send({
+      type: "broadcast",
+      event,
+      payload: {
+        ...payload,
+        from: currentUserId,
+      },
+    });
+
+    if (result !== "ok") {
+      console.error("[Oycea] Échec du signal Realtime :", {
         event,
-        payload: {
-          ...payload,
-          from: userIdRef.current,
-        },
+        result,
       });
 
-      if (result !== "ok") {
-        throw new Error("Impossible d'envoyer le signal d'appel.");
-      }
-    },
-    []
-  );
-
+      throw new Error(
+        `Échec de l'envoi du signal (${String(result)}). Vérifie les autorisations Realtime.`
+      );
+    }
+  },
+  []
+);
 const toggleCamera = useCallback(() => {
   const track = streamRef.current?.getVideoTracks()[0];
   if (!track) return;
@@ -544,19 +557,35 @@ updateStatus("incoming");
         updateStatus("idle");
         setError("L'appel a été terminé.");
       })
-      .subscribe((subscriptionStatus) => {
-        if (!active) return;
+      .subscribe((subscriptionStatus, err) => {
+  if (!active) return;
 
-        if (subscriptionStatus === "SUBSCRIBED") {
-          setChannelReady(true);
-          setError("");
-        } else if (subscriptionStatus === "CHANNEL_ERROR") {
-          setChannelReady(false);
-          setError("Impossible de rejoindre le canal privé des appels.");
-        } else if (subscriptionStatus === "CLOSED") {
-          setChannelReady(false);
-        }
-      });
+  console.log("[Oycea] Statut Realtime :", subscriptionStatus);
+
+  if (err) {
+    console.error("[Oycea] Erreur Realtime :", err);
+  }
+
+  if (subscriptionStatus === "SUBSCRIBED") {
+    setChannelReady(true);
+    setError("");
+    console.log("[Oycea] Canal d'appel connecté.");
+    return;
+  }
+
+  setChannelReady(false);
+
+  if (
+    subscriptionStatus === "CHANNEL_ERROR" ||
+    subscriptionStatus === "TIMED_OUT"
+  ) {
+    setError(
+      "Connexion aux appels impossible. Vérifie la configuration Realtime de Supabase."
+    );
+  } else if (subscriptionStatus === "CLOSED") {
+    setError("La connexion aux appels a été fermée.");
+  }
+});
 
     return () => {
       active = false;
@@ -588,23 +617,20 @@ updateStatus("incoming");
     };
   }, [disposeConnection]);
 
-  const value: CallContextType = {
-      status,
-      startCall,
-
-      acceptCall,
-      rejectCall,
-      hangUp,
-      toggleMicrophone,
-      muted,
-      duration,
-      error,
-      toggleCamera: function (): void {
-          throw new Error("Function not implemented.");
-      },
-      cameraEnabled: false,
-      mediaType: "audio"
-  };
+ const value: CallContextType = {
+  status,
+  startCall,
+  acceptCall,
+  rejectCall,
+  hangUp,
+  toggleMicrophone,
+  toggleCamera,
+  cameraEnabled,
+  mediaType,
+  muted,
+  duration,
+  error,
+};
 
   return (
     <CallContext.Provider value={value}>
@@ -727,21 +753,6 @@ function CallOverlay({ channelReady }: { channelReady: boolean }) {
               <p className="mt-3 text-sm text-red-600">{error}</p>
             )}
 
-            <button
-              disabled={!channelReady}
-              onClick={() => {
-                setExpanded(false);
-                void startCall();
-              }}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#c98298] px-4 py-3 text-sm font-medium text-white disabled:opacity-50"
-            >
-              {!channelReady ? (
-                <LoaderCircle size={17} className="animate-spin" />
-              ) : (
-                <Phone size={17} />
-              )}
-              {channelReady ? "Lancer un appel" : "Connexion…"}
-            </button>
           </div>
         )}
       </div>
