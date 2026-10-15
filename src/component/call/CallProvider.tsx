@@ -91,6 +91,7 @@ const [cameraEnabled, setCameraEnabled] = useState(false);
 
 const localVideoRef = useRef<HTMLVideoElement | null>(null);
 const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+const remoteStreamRef = useRef<MediaStream | null>(null);
 
   const channelRef = useRef<any>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -205,6 +206,17 @@ const toggleCamera = useCallback(() => {
 
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+remoteStreamRef.current = null;
+
+if (localVideoRef.current) {
+  localVideoRef.current.srcObject = null;
+}
+
+if (remoteVideoRef.current) {
+  remoteVideoRef.current.srcObject = null;
+}
+
+setCameraEnabled(false);
 
     if (audioRef.current) {
       audioRef.current.srcObject = null;
@@ -238,23 +250,46 @@ const toggleCamera = useCallback(() => {
       });
     };
 
-   pc.ontrack = (event) => {
-  const remoteStream = event.streams[0];
+ 
+pc.ontrack = (event) => {
+  let remoteStream = event.streams[0];
 
-  if (audioRef.current && remoteStream) {
+  if (!remoteStream) {
+    remoteStream = remoteStreamRef.current ?? new MediaStream();
+    remoteStreamRef.current = remoteStream;
+
+    if (
+      !remoteStream.getTracks().some(
+        (track) => track.id === event.track.id
+      )
+    ) {
+      remoteStream.addTrack(event.track);
+    }
+  } else {
+    remoteStreamRef.current = remoteStream;
+  }
+
+  if (audioRef.current) {
     audioRef.current.srcObject = remoteStream;
-    void audioRef.current.play().catch(() => {
-      setError("Clique sur la page pour autoriser la lecture audio.");
+    void audioRef.current.play().catch((err) => {
+      console.warn("[Oycea] Lecture audio distante impossible :", err);
     });
   }
 
-  if (remoteVideoRef.current && remoteStream) {
+  if (remoteVideoRef.current) {
     remoteVideoRef.current.srcObject = remoteStream;
-    void remoteVideoRef.current.play().catch(() => {
-      setError("Clique sur la page pour démarrer la vidéo.");
+    void remoteVideoRef.current.play().catch((err) => {
+      console.warn("[Oycea] Lecture vidéo distante impossible :", err);
     });
   }
+
+  console.log(
+    "[Oycea] Piste distante reçue :",
+    event.track.kind,
+    event.track.readyState
+  );
 };
+
 
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === "connected") {
@@ -309,6 +344,14 @@ const getLocalStream = useCallback(async (withVideo = false) => {
   });
 
   streamRef.current = stream;
+console.log(
+  "[Oycea] Caméra locale :",
+  stream.getVideoTracks().map((track) => ({
+    label: track.label,
+    enabled: track.enabled,
+    readyState: track.readyState,
+  }))
+);
 
   if (localVideoRef.current) {
     localVideoRef.current.srcObject = stream;
@@ -616,6 +659,33 @@ updateStatus("incoming");
       disposeConnection();
     };
   }, [disposeConnection]);
+  
+useEffect(() => {
+  if (status === "idle" || mediaType !== "video") return;
+
+  const localVideo = localVideoRef.current;
+  const localStream = streamRef.current;
+
+  if (localVideo && localStream) {
+    localVideo.srcObject = localStream;
+
+    void localVideo.play().catch((err) => {
+      console.warn("[Oycea] Lecture vidéo locale impossible :", err);
+    });
+  }
+
+  const remoteVideo = remoteVideoRef.current;
+  const remoteStream = remoteStreamRef.current;
+
+  if (remoteVideo && remoteStream) {
+    remoteVideo.srcObject = remoteStream;
+
+    void remoteVideo.play().catch((err) => {
+      console.warn("[Oycea] Lecture vidéo distante impossible :", err);
+    });
+  }
+}, [status, mediaType]);
+
 
  const value: CallContextType = {
   status,
@@ -638,8 +708,8 @@ updateStatus("incoming");
 
 <audio ref={audioRef} autoPlay playsInline />
 
-{status !== "idle" && mediaType === "video" && (
-  <div className="fixed bottom-5 left-5 z-[99] grid w-[min(520px,calc(100vw-40px))] grid-cols-2 gap-2 overflow-hidden rounded-2xl border border-[#eedde1] bg-[#49353d] p-2 shadow-2xl">
+{status !== "idle" && (
+      <div className="fixed bottom-24 left-3 right-3 z-[99] grid grid-cols-2 gap-2 overflow-hidden rounded-2xl border border-[#eedde1] bg-[#49353d] p-2 shadow-2xl">
     <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-black">
       <video
         ref={remoteVideoRef}
