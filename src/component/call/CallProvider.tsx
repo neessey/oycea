@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 "use client";
@@ -326,6 +327,8 @@ const getLocalStream = useCallback(async (withVideo = false) => {
       "Le micro et la caméra nécessitent HTTPS ou localhost."
     );
   }
+
+  
 
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: {
@@ -752,90 +755,127 @@ function formatDuration(seconds: number) {
   ).padStart(2, "0")}`;
 }
 
+
 function CallOverlay({ channelReady }: { channelReady: boolean }) {
- const {
-  status,
-  startCall,
-  acceptCall,
-  rejectCall,
-  hangUp,
-  toggleMicrophone,
-  toggleCamera,
-  cameraEnabled,
-  mediaType,
-  muted,
-  duration,
-  error,
-} = useCall();
+  const {
+    status,
+    startCall,
+    acceptCall,
+    rejectCall,
+    hangUp,
+    toggleMicrophone,
+    toggleCamera,
+    cameraEnabled,
+    mediaType,
+    muted,
+    duration,
+    error,
+  } = useCall();
 
   const [expanded, setExpanded] = useState(false);
 
+  // Fermer les commandes quand l'appel se termine.
+  useEffect(() => {
+    if (status === "idle") {
+      setExpanded(false);
+    }
+  }, [status]);
+
+  // Bouton flottant lorsque l'appel est en cours.
+  if (status !== "idle" && status !== "incoming" && !expanded) {
+    return (
+      <div className="fixed bottom-5 right-4 z-[100]">
+        <button
+          onClick={() => setExpanded(true)}
+          aria-label="Afficher les commandes de l'appel"
+          className="flex h-14 items-center gap-3 rounded-full border border-[#eedde1] bg-[#49353d] px-4 text-white shadow-2xl transition hover:bg-[#644653]"
+        >
+          <Phone size={18} />
+          <span className="text-sm font-medium">
+            {formatDuration(duration)}
+          </span>
+          <span className="flex h-2 w-2 rounded-full bg-emerald-400" />
+        </button>
+      </div>
+    );
+  }
+
+  // Bouton d'appel habituel lorsqu'aucun appel n'est actif.
   if (status === "idle" && !error) {
     return (
-      <div className="fixed bottom-5 right-5 z-[100]">
+      <div className="fixed bottom-5 right-4 z-[100]">
         <button
-          onClick={() => {
-            setExpanded((value) => !value);
-          }}
-          className="flex h-14 items-center gap-3 rounded-full bg-[#49353d] px-5 text-sm font-medium text-white shadow-xl transition hover:bg-[#644653]"
+          onClick={() => setExpanded((value) => !value)}
           aria-label="Ouvrir les commandes d'appel"
+          className="flex h-14 items-center gap-3 rounded-full bg-[#49353d] px-5 text-sm font-medium text-white shadow-xl transition hover:bg-[#644653]"
         >
           <Phone size={18} />
           <span>Appel</span>
         </button>
 
         {expanded && (
-          <div className="absolute bottom-16 right-0 w-72 rounded-2xl border border-[#f0dfe3] bg-white p-5 text-[#49353d] shadow-2xl">
+          <div className="absolute bottom-16 right-0 w-[min(288px,calc(100vw-32px))] rounded-2xl border border-[#f0dfe3] bg-white p-5 text-[#49353d] shadow-2xl">
             <div className="flex items-center justify-between">
               <h2 className="font-medium">Appel privé</h2>
-<div className="mt-4 grid grid-cols-2 gap-2">
-  <button
-    disabled={!channelReady}
-    onClick={() => {
-      setExpanded(false);
-      void startCall("audio");
-    }}
-    className="flex items-center justify-center gap-2 rounded-xl bg-[#fff0f4] px-3 py-3 text-sm text-[#ad7187] disabled:opacity-50"
-  >
-    <Phone size={17} />
-    Audio
-  </button>
-
-  <button
-    disabled={!channelReady}
-    onClick={() => {
-      setExpanded(false);
-      void startCall("video");
-    }}
-    className="flex items-center justify-center gap-2 rounded-xl bg-[#c98298] px-3 py-3 text-sm text-white disabled:opacity-50"
-  >
-    <Video size={17} />
-    Vidéo
-  </button>
-</div>
+              <button
+                onClick={() => setExpanded(false)}
+                aria-label="Fermer"
+                className="rounded-full p-1 text-[#907b82] hover:bg-[#fff0f4]"
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            <p className="mt-2 text-sm leading-6 text-[#907b82]">
-              Appelez votre partenaire sans quitter la page.
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                disabled={!channelReady}
+                onClick={() => {
+                  setExpanded(false);
+                  void startCall("audio");
+                }}
+                className="flex items-center justify-center gap-2 rounded-xl bg-[#fff0f4] px-3 py-3 text-sm text-[#ad7187] disabled:opacity-50"
+              >
+                <Phone size={17} />
+                Audio
+              </button>
+
+              <button
+                disabled={!channelReady}
+                onClick={() => {
+                  setExpanded(false);
+                  void startCall("video");
+                }}
+                className="flex items-center justify-center gap-2 rounded-xl bg-[#c98298] px-3 py-3 text-sm text-white disabled:opacity-50"
+              >
+                <Video size={17} />
+                Vidéo
+              </button>
+            </div>
+
+            <p className="mt-3 text-sm leading-6 text-[#907b82]">
+              Appelle ton partenaire sans quitter la page.
             </p>
 
-            {error && (
-              <p className="mt-3 text-sm text-red-600">{error}</p>
+            {!channelReady && (
+              <p className="mt-2 text-xs text-[#907b82]">
+                Connexion au service d&apos;appel…
+              </p>
             )}
-
           </div>
         )}
       </div>
     );
   }
 
+  // Panneau développé : appel entrant ou commandes de l'appel actif.
   return (
-    <div className="fixed bottom-5 right-5 z-[100] w-[min(340px,calc(100vw-40px))] rounded-3xl border border-[#eedde1] bg-white p-5 text-[#49353d] shadow-2xl">
+    <div className="fixed bottom-5 right-4 z-[100] w-[min(340px,calc(100vw-32px))] rounded-3xl border border-[#eedde1] bg-white p-5 text-[#49353d] shadow-2xl">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs tracking-[0.15em] text-[#ad7187]">
             OYCEA · APPEL PRIVÉ
           </p>
+
           <h2 className="mt-2 text-lg font-medium">
             {status === "incoming"
               ? "Appel entrant"
@@ -843,6 +883,7 @@ function CallOverlay({ channelReady }: { channelReady: boolean }) {
                 ? "Vous êtes en ligne"
                 : "Appel en cours"}
           </h2>
+
           <p className="mt-1 text-sm text-[#907b82]">
             {status === "connected"
               ? formatDuration(duration)
@@ -852,15 +893,15 @@ function CallOverlay({ channelReady }: { channelReady: boolean }) {
           </p>
         </div>
 
-        <span
-          className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
-            status === "connected"
-              ? "bg-emerald-500"
-              : status === "incoming"
-                ? "animate-pulse bg-[#c98298]"
-                : "animate-pulse bg-amber-400"
-          }`}
-        />
+        {status !== "incoming" && (
+          <button
+            onClick={() => setExpanded(false)}
+            aria-label="Réduire les commandes"
+            className="rounded-full p-2 text-[#907b82] transition hover:bg-[#fff0f4]"
+          >
+            <X size={18} />
+          </button>
+        )}
       </div>
 
       {error && (
@@ -876,6 +917,7 @@ function CallOverlay({ channelReady }: { channelReady: boolean }) {
             <PhoneOff size={17} />
             Refuser
           </button>
+
           <button
             onClick={() => void acceptCall()}
             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#c98298] px-3 py-3 text-sm font-medium text-white"
@@ -885,39 +927,57 @@ function CallOverlay({ channelReady }: { channelReady: boolean }) {
           </button>
         </div>
       ) : (
-        <div className="mt-5 flex gap-3">
+        <>
+          <div className="mt-5 flex gap-2">
+            <button
+              onClick={toggleMicrophone}
+              disabled={status !== "connected"}
+              aria-label={muted ? "Activer le micro" : "Couper le micro"}
+              className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#fff0f4] text-[#ad7187] disabled:opacity-50"
+            >
+              {muted ? <MicOff size={18} /> : <Mic size={18} />}
+              <span className="text-xs">
+                {muted ? "Micro coupé" : "Micro"}
+              </span>
+            </button>
+
+            <button
+              onClick={toggleCamera}
+              disabled={mediaType !== "video"}
+              aria-label={
+                cameraEnabled ? "Couper la caméra" : "Activer la caméra"
+              }
+              className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#fff0f4] text-[#ad7187] disabled:opacity-50"
+            >
+              {cameraEnabled ? (
+                <Video size={18} />
+              ) : (
+                <VideoOff size={18} />
+              )}
+              <span className="text-xs">
+                {cameraEnabled ? "Caméra" : "Caméra coupée"}
+              </span>
+            </button>
+
+            <button
+              onClick={() => void hangUp()}
+              aria-label="Raccrocher"
+              className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#a9445e] text-white"
+            >
+              <PhoneOff size={18} />
+              <span className="text-xs">Fin</span>
+            </button>
+          </div>
+
           <button
-            onClick={toggleMicrophone}
-            disabled={status !== "connected"}
-            aria-label={muted ? "Activer le micro" : "Couper le micro"}
-            className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#fff0f4] text-[#ad7187] disabled:opacity-50"
+            onClick={() => setExpanded(false)}
+            className="mt-3 w-full rounded-xl border border-[#eedde1] px-3 py-2 text-sm text-[#907b82] transition hover:bg-[#fff8fa]"
           >
-            {muted ? <MicOff size={18} /> : <Mic size={18} />}
-            <span className="text-sm">
-              {muted ? "Micro coupé" : "Micro"}
-            </span>
+            Réduire les commandes
           </button>
-<button
-  onClick={toggleCamera}
-  disabled={mediaType !== "video"}
-  aria-label={cameraEnabled ? "Couper la caméra" : "Activer la caméra"}
-  className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#fff0f4] text-[#ad7187] disabled:opacity-50"
->
-  {cameraEnabled ? <Video size={18} /> : <VideoOff size={18} />}
-  <span className="text-sm">
-    {cameraEnabled ? "Caméra" : "Caméra coupée"}
-  </span>
-</button>
-          <button
-            onClick={() => void hangUp()}
-            aria-label="Raccrocher"
-            className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#a9445e] text-white"
-          >
-            <PhoneOff size={18} />
-            <span className="text-sm">Raccrocher</span>
-          </button>
-        </div>
+        </>
       )}
     </div>
   );
 }
+
