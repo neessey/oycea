@@ -44,16 +44,11 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#fff8f6] px-5 py-12 text-[#493b40]">
       <section className="w-full max-w-md rounded-[2rem] border border-[#f0e1e3] bg-white p-7 shadow-sm sm:p-10">
-        <a
-          href="/"
-          className="text-sm text-[#9b777f] transition hover:text-[#c47c91]"
-        >
-          ← Retour à oycea
-        </a>
+       
 
         <div className="mb-8 mt-10 text-center">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#fff0f2] text-3xl">
-            ♡
+          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-[#fff0f2] text-3xl">
+            <img src="/assets/logo.png" alt="logo" />
           </div>
 
           <p className="mb-3 text-xs font-medium uppercase tracking-[0.25em] text-[#bc8292]">

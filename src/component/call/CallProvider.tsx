@@ -103,24 +103,34 @@ export default function CallProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     mountedRef.current = true;
 
+    // Pas connecté = pas d'appels : aucun message, aucun bouton (ex. page login).
+    function applyUser(id: string) {
+      userIdRef.current = id;
+      setUserId(id);
+    }
+
     async function loadUser() {
       const { data, error: authError } = await supabase.auth.getUser();
 
       if (!mountedRef.current) return;
 
-      if (authError || !data.user) {
-        setError("Connecte-toi pour utiliser les appels.");
-        return;
-      }
-
-      userIdRef.current = data.user.id;
-      setUserId(data.user.id);
+      applyUser(authError || !data.user ? "" : data.user.id);
     }
 
     void loadUser();
 
+    // Le layout reste monté quand on passe de /login à l'app : on suit
+    // donc les connexions / déconnexions sans recharger la page.
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (!mountedRef.current) return;
+        applyUser(session?.user?.id ?? "");
+      }
+    );
+
     return () => {
       mountedRef.current = false;
+      authListener.subscription.unsubscribe();
     };
   }, [supabase]);
 
@@ -221,6 +231,16 @@ export default function CallProvider({ children }: { children: ReactNode }) {
     setIncomingCaller("");
     setMediaType("audio");
   }, []);
+
+  // Déconnexion (ou pas d'utilisateur) : on coupe tout appel et on efface les erreurs.
+  useEffect(() => {
+    if (userId) return;
+
+    disposeConnection();
+    updateStatus("idle");
+    setError("");
+    setChannelReady(false);
+  }, [userId, disposeConnection, updateStatus]);
 
   const createPeerConnection = useCallback(() => {
     const pc = new RTCPeerConnection({
@@ -727,7 +747,7 @@ export default function CallProvider({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      <CallOverlay channelReady={channelReady} />
+      {userId && <CallOverlay channelReady={channelReady} />}
     </CallContext.Provider>
   );
 }
@@ -758,6 +778,15 @@ function CallOverlay({ channelReady }: { channelReady: boolean }) {
   } = useCall();
 
   const [expanded, setExpanded] = useState(false);
+  const [dismissedError, setDismissedError] = useState("");
+
+  // Une erreur au repos s'affiche en petite bulle qui disparaît toute seule.
+  useEffect(() => {
+    if (!error || status !== "idle") return;
+
+    const timer = window.setTimeout(() => setDismissedError(error), 6000);
+    return () => window.clearTimeout(timer);
+  }, [error, status]);
 
   // Fermer les commandes quand l'appel se termine ou qu'une erreur apparaît.
   useEffect(() => {
@@ -792,9 +821,25 @@ function CallOverlay({ channelReady }: { channelReady: boolean }) {
   }
 
   // Bouton d'appel habituel lorsqu'aucun appel n'est actif.
-  if (status === "idle" && !error) {
+  if (status === "idle") {
     return (
       <div className="fixed bottom-5 right-4 z-[100]">
+        {error && error !== dismissedError && !expanded && (
+          <div
+            role="status"
+            className="absolute bottom-16 right-0 flex w-[min(288px,calc(100vw-32px))] items-start gap-3 rounded-2xl border border-[#f0d2d9] bg-white p-4 text-sm leading-6 text-[#a34d68] shadow-2xl"
+          >
+            <p className="flex-1">{error}</p>
+            <button
+              onClick={() => setDismissedError(error)}
+              aria-label="Fermer le message"
+              className="rounded-full p-1 text-[#907b82] hover:bg-[#fff0f4]"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
         <button
           onClick={() => setExpanded((value) => !value)}
           aria-label="Ouvrir les commandes d'appel"
