@@ -17,8 +17,22 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import MorpionGame from "./MorpionGame.tsx/page";
+import CheckersGame from "./CheckersGame.tsx/page";
+import PuzzleGame from "./PuzzleGame.tsx/page";
+import FourInARowGame from "./FourInARowGame.tsx/page";
+import LinkedAdventureGame from "./LinkedAdventureGame.tsx/page";
+import LudoGame from "./LudoGame.tsx/page";
 
-type Activity = "menu" | "morpion" | "defis" | "questions";
+type Activity =
+  | "menu"
+  | "morpion"
+  | "dames"
+  | "puzzle"
+  | "linked"
+  | "ludo"
+  | "forinarow"
+  | "defis"
+  | "questions";
 
 type Challenge = {
   id: string;
@@ -460,6 +474,27 @@ async function joinSession(
   if (activity === "morpion") {
     return <MorpionGame onBack={() => setActivity("menu")} />;
   }
+  if (activity === "dames") {
+  return <CheckersGame onBack={() => setActivity("menu")} />;
+}
+
+if (activity === "puzzle") {
+  return <PuzzleGame onBack={() => setActivity("menu")} />;
+}
+
+if (activity === "forinarow") {
+  return <FourInARowGame onBack={() => setActivity("menu")} />;
+}
+
+if (activity === "linked") {
+  return <LinkedAdventureGame onBack={() => setActivity("menu")} />;
+}
+
+if (activity === "ludo") {
+  return <LudoGame onBack={() => setActivity("menu")} />;
+}
+
+
 
   const myResponse = responses.find((row) => row.user_id === userId);
   const partnerResponse = responses.find((row) => row.user_id !== userId);
@@ -525,6 +560,88 @@ async function joinSession(
                   Jouer <ChevronRight size={16} />
                 </span>
               </button>
+              
+<button
+  onClick={() => setActivity("dames")}
+  className="rounded-3xl border border-[#f0dfe3] bg-white p-6 text-left transition hover:-translate-y-1 hover:shadow-lg"
+>
+  <Gamepad2 className="text-[#9e91c7]" size={25} />
+  <h2 className="mt-5 text-xl font-medium">Jeu de dames</h2>
+  <p className="mt-2 text-sm leading-6 text-[#907b82]">
+    Déplace tes pions, capture ceux de ton partenaire et deviens la reine du plateau.
+  </p>
+  <span className="mt-5 inline-flex items-center gap-2 text-sm text-[#b8768d]">
+    Jouer <ChevronRight size={16} />
+  </span>
+</button>
+
+
+<button
+  onClick={() => setActivity("puzzle")}
+  className="rounded-3xl border border-[#f0dfe3] bg-white p-6 text-left transition hover:-translate-y-1 hover:shadow-lg"
+>
+  <Gamepad2 className="text-[#9e91c7]" size={25} />
+  <h2 className="mt-5 text-xl font-medium">Puzzle à deux</h2>
+  <p className="mt-2 text-sm leading-6 text-[#907b82]">
+    Assemblez la même image ensemble, chacun sur son téléphone.
+  </p>
+  <span className="mt-5 inline-flex items-center gap-2 text-sm text-[#b8768d]">
+    Jouer <ChevronRight size={16} />
+  </span>
+</button>
+
+<button 
+  onClick={() => setActivity("forinarow")}
+  className="rounded-3xl border border-[#f0dfe3] bg-white p-6 text-left transition hover:-translate-y-1 hover:shadow-lg"
+>
+  <Gamepad2 className="text-[#9e91c7]" size={25} />
+  <h2 className="mt-5 text-xl font-medium">Puissance 4</h2>
+  <p className="mt-2 text-sm leading-6 text-[#907b82]">
+    Alignez quatre jetons avant votre partenaire
+    dans ce duel stratégique à deux.
+  </p>
+  <span className="mt-5 inline-flex items-center gap-2 text-sm text-[#b8768d]">
+    Jouer <ChevronRight size={16} />
+  </span>
+</button>
+
+
+<button
+  onClick={() => setActivity("linked")}
+  className="rounded-3xl border border-[#f0dfe3] bg-white p-6 text-left transition hover:-translate-y-1 hover:shadow-lg"
+>
+  <Heart className="text-[#c98298]" size={25} />
+  <h2 className="mt-5 text-xl font-medium">
+    Liés pour avancer
+  </h2>
+  <p className="mt-2 text-sm leading-6 text-[#907b82]">
+    Deux personnages, cinq niveaux et une seule mission :
+    franchir tous les obstacles ensemble. Si l&apos;un tombe,
+    vous recommencez à deux.
+  </p>
+  <span className="mt-5 inline-flex items-center gap-2 text-sm text-[#b8768d]">
+    Jouer <ChevronRight size={16} />
+  </span>
+</button>
+
+
+<button
+  onClick={() => setActivity("ludo")}
+  className="rounded-3xl border border-[#f0dfe3] bg-white p-6 text-left transition hover:-translate-y-1 hover:shadow-lg"
+>
+  <Gamepad2 className="text-[#c98298]" size={25} />
+  <h2 className="mt-5 text-xl font-medium">
+    Ludo
+  </h2>
+  <p className="mt-2 text-sm leading-6 text-[#907b82]">
+    Lance le dé, avance tes pions et défie ton partenaire.
+    Une partie multijoueur pour jouer ensemble, même à distance.
+  </p>
+  <span className="mt-5 inline-flex items-center gap-2 text-sm text-[#b8768d]">
+    Jouer <ChevronRight size={16} />
+  </span>
+</button>
+
 
              
 <Link
