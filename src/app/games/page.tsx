@@ -14,6 +14,7 @@ import {
   MessageCircleHeart,
   Sparkles,
   Users,
+  X
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import MorpionGame from "./MorpionGame.tsx/page";
@@ -32,7 +33,6 @@ type Activity =
   | "ludo"
   | "forinarow"
   | "defis"
-  | "questions";
 
 type Challenge = {
   id: string;
@@ -69,7 +69,7 @@ function makeRoomCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
-type GamePageMode = "menu" | "defis" | "questions";
+type GamePageMode = "menu" | "defis" ;
 
 export default function GamesExperience({
   initialActivity = "menu",
@@ -79,6 +79,7 @@ export default function GamesExperience({
       const supabase = useMemo(() => createClient(), []);
 
 const [activity, setActivity] = useState<Activity>(initialActivity);
+const [openedGame, setOpenedGame] = useState<GameCard | null>(null);
   const [userId, setUserId] = useState("");
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [selectedChallenge, setSelectedChallenge] =
@@ -193,9 +194,7 @@ if (savedId) {
       .maybeSingle();
 
     if (active) {
-      setActivity(
-        savedChallenge?.kind === "question" ? "questions" : "defis"
-      );
+      setActivity("defis");
     }
   } else {
     sessionStorage.removeItem("oycea_challenge_session_id");
@@ -256,7 +255,7 @@ if (savedId) {
 
 async function createSession(
   challenge: Challenge,
-  targetActivity: "defis" | "questions" = "defis"
+  targetActivity: "defis"  = "defis"
 ) {
         if (!userId || busy) return;
 
@@ -312,7 +311,7 @@ setActivity(targetActivity);
 
 
 async function joinSession(
-  targetActivity: "defis" | "questions" = "defis"
+  targetActivity: "defis"  = "defis"
 ) {
   if (!roomInput.trim() || busy) return;
 
@@ -350,9 +349,7 @@ async function joinSession(
       setMessage("La salle est rejointe, mais le type de jeu n'a pas pu être chargé.");
     }
 
-    setActivity(
-      joinedChallenge?.kind === "question" ? "questions" : targetActivity
-    );
+   
 
     setRoomInput("");
   } finally {
@@ -501,6 +498,76 @@ if (activity === "ludo") {
   const bothAnswered = Boolean(myResponse && partnerResponse);
   const isHost = session?.host_id === userId;
 
+  type GameCard = {
+  key: Activity;
+  title: string;
+  short: string;
+  description: string;
+  icon: React.ReactNode;
+  href?: string;
+};
+
+const games: GameCard[] = [
+  {
+    key: "morpion",
+    title: "Morpion",
+    short: "Une petite compétition, juste vous deux.",
+    description:
+      "Alignez trois symboles avant votre partenaire. Un classique rapide pour se taquiner et rigoler, même à distance.",
+    icon: <Gamepad2 size={40} />,
+  },
+  {
+    key: "dames",
+    title: "Jeu de dames",
+    short: "Capture les pions de ton partenaire.",
+    description:
+      "Déplace tes pions, capture ceux de ton partenaire et deviens la reine du plateau. Un duel stratégique pour les soirées calmes.",
+    icon: <Gamepad2 size={40} />,
+  },
+  {
+    key: "puzzle",
+    title: "Puzzle à deux",
+    short: "Assemblez la même image ensemble.",
+    description:
+      "Assemblez la même image ensemble, chacun sur son téléphone. Un moment collaboratif pour avancer main dans la main.",
+    icon: <Gamepad2 size={40} />,
+  },
+  {
+    key: "forinarow",
+    title: "Puissance 4",
+    short: "Alignez quatre jetons avant l'autre.",
+    description:
+      "Alignez quatre jetons avant votre partenaire dans ce duel stratégique à deux. Simple à comprendre, difficile à lâcher.",
+    icon: <Gamepad2 size={40} />,
+  },
+  {
+    key: "linked",
+    title: "Liés pour avancer",
+    short: "Franchir tous les obstacles ensemble.",
+    description:
+      "Deux personnages, cinq niveaux et une seule mission : franchir tous les obstacles ensemble. Si l'un tombe, vous recommencez à deux.",
+    icon: <Heart size={40} />,
+  },
+  {
+    key: "ludo",
+    title: "Ludo",
+    short: "Lance le dé et défie ton partenaire.",
+    description:
+      "Lance le dé, avance tes pions et défie ton partenaire. Une partie multijoueur pour jouer ensemble, même à distance.",
+    icon: <Gamepad2 size={40} />,
+  },
+  {
+    key: "defis",
+    title: "Nos défis",
+    short: "Des missions romantiques et des confidences.",
+    description:
+      "Des missions romantiques, des confidences et vos propres idées. Choisissez un défi, créez une salle et partagez le code avec votre partenaire.",
+    icon: <Sparkles size={40} />,
+    href: "/games/defis",
+  },
+ 
+];
+
   return (
     <main className="min-h-screen bg-[#fff9f7] px-5 py-8 text-[#49353d] sm:px-8">
       <div className="mx-auto max-w-5xl">
@@ -526,7 +593,7 @@ if (activity === "ludo") {
           </p>
         )}
 
-        {activity === "menu" && (
+        {/* {activity === "menu" && (
           <>
             <section className="mb-10">
               <span className="inline-flex items-center gap-2 rounded-full border border-[#f1dce2] bg-white px-4 py-2 text-xs tracking-wide text-[#ad7187]">
@@ -674,7 +741,108 @@ if (activity === "ludo") {
 </Link>
             </div>
           </>
-        )}
+        )} */}
+
+        {activity === "menu" && (
+  <>
+    <section className="mb-10">
+      <span className="inline-flex items-center gap-2 rounded-full border border-[#f1dce2] bg-white px-4 py-2 text-xs tracking-wide text-[#ad7187]">
+        <Heart size={13} />
+        NOTRE PETIT UNIVERS
+      </span>
+      <h1 className="mt-5 text-4xl font-medium tracking-tight sm:text-5xl">
+        On joue à quoi,
+        <br />
+        <span className="font-serif italic text-[#cc819a]">
+          aujourd&apos;hui ?
+        </span>
+      </h1>
+      <p className="mt-4 max-w-lg leading-7 text-[#907b82]">
+        Des jeux, des confidences et des petits défis pour se retrouver,
+        même à distance.
+      </p>
+    </section>
+
+    <div className="grid grid-cols-2 gap-4 sm:gap-5">
+      {games.map((game) => (
+        <button
+          key={game.key}
+          onClick={() => setOpenedGame(game)}
+          className="group overflow-hidden rounded-3xl border border-[#f0dfe3] bg-white text-left transition hover:-translate-y-1 hover:shadow-lg"
+        >
+          {/* Zone image / illustration */}
+         <div className="relative aspect-square overflow-hidden">
+  <img
+    src={`/games/${game.key}.png`}
+    alt={game.title}
+    className="h-full w-full object-cover transition group-hover:scale-105"
+  />
+</div>
+
+          {/* Texte sous l'image */}
+          <div className="p-4 sm:p-5">
+            <h2 className="text-base font-medium sm:text-lg">
+              {game.title}
+            </h2>
+            <p className="mt-1 text-xs leading-5 text-[#907b82] sm:text-sm">
+              {game.short}
+            </p>
+          </div>
+        </button>
+      ))}
+    </div>
+
+    {/* Modale de description */}
+    {openedGame && (
+      <div
+        className="fixed inset-0 z-50 flex items-end justify-center bg-[#49353d]/30 p-4 backdrop-blur-sm sm:items-center"
+        onClick={() => setOpenedGame(null)}
+      >
+        <div
+          onClick={(event) => event.stopPropagation()}
+          className="w-full max-w-md rounded-3xl border border-[#f0dfe3] bg-white p-6 shadow-[0_24px_80px_rgba(125,76,91,0.18)] sm:p-8"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#fff0f4] to-[#f8f0ff] text-[#c98298]">
+              {openedGame.icon}
+            </div>
+            <button
+              onClick={() => setOpenedGame(null)}
+              className="rounded-full p-2 text-[#a78b93] transition hover:bg-[#fff0f4]"
+              aria-label="Fermer"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <h2 className="mt-5 text-2xl font-medium">{openedGame.title}</h2>
+          <p className="mt-3 text-sm leading-6 text-[#907b82]">
+            {openedGame.description}
+          </p>
+
+          {openedGame.href ? (
+            <Link
+              href={openedGame.href}
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-[#c98298] px-5 py-3.5 text-sm font-medium text-white transition hover:bg-[#b87188]"
+            >
+              Découvrir <ChevronRight size={16} />
+            </Link>
+          ) : (
+            <button
+              onClick={() => {
+                setActivity(openedGame.key);
+                setOpenedGame(null);
+              }}
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-[#c98298] px-5 py-3.5 text-sm font-medium text-white transition hover:bg-[#b87188]"
+            >
+              Jouer <ChevronRight size={16} />
+            </button>
+          )}
+        </div>
+      </div>
+    )}
+  </>
+)}
 
         {activity === "defis" && !session && (
           <>
@@ -822,7 +990,7 @@ if (activity === "ludo") {
           </>
         )}
 
-{(activity === "defis" || activity === "questions") &&
+{(activity === "defis" ) &&
   session &&
   selectedChallenge && (
               <section className="mx-auto max-w-2xl">

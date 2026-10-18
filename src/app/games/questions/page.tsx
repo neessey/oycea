@@ -8,29 +8,25 @@ import {
   Check,
   ChevronRight,
   Copy,
-  Gamepad2,
   Heart,
   LoaderCircle,
+  LockKeyhole,
   MessageCircleHeart,
+  Send,
   Sparkles,
   Users,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import MorpionGame from "../MorpionGame.tsx/page";
 
-type Activity = "menu" | "morpion" | "defis" | "questions";
+type Activity = "menu" | "morpion" | "questions";
 
 type Challenge = {
   id: string;
-  slug: string | null;
   title: string;
   description: string;
   category: string;
   kind: "question" | "action";
-  options: string[];
-  is_daily: boolean;
-  is_builtin: boolean;
-  created_by: string | null;
 };
 
 type Session = {
@@ -42,13 +38,15 @@ type Session = {
   status: "waiting" | "playing" | "finished";
 };
 
-type ResponseRow = {
+type CoupleQuestion = {
   id: string;
   session_id: string;
-  user_id: string;
-  answer: string;
-  proof_url: string | null;
-  completed_at: string;
+  asked_by: string;
+  question: string;
+  answer: string | null;
+  answered_by: string | null;
+  created_at: string;
+  answered_at: string | null;
 };
 
 function makeRoomCode() {
@@ -61,50 +59,47 @@ export default function QuestionsPage() {
   const [activity, setActivity] = useState<Activity>("questions");
   const [userId, setUserId] = useState("");
   const [challenges, setChallenges] = useState<Challenge[]>([]);
-  const [selectedChallenge, setSelectedChallenge] =
-    useState<Challenge | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [responses, setResponses] = useState<ResponseRow[]>([]);
-  const [answer, setAnswer] = useState("");
-  const [proofUrl, setProofUrl] = useState("");
+  const [questions, setQuestions] = useState<CoupleQuestion[]>([]);
   const [roomInput, setRoomInput] = useState("");
-  const [customTitle, setCustomTitle] = useState("");
-  const [customDescription, setCustomDescription] = useState("");
-  const [customCategory, setCustomCategory] = useState("Complicité");
-  const [customKind, setCustomKind] =
-    useState<"question" | "action">("action");
-  const [showCreator, setShowCreator] = useState(false);
+  const [questionInput, setQuestionInput] = useState("");
+  const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [answeringId, setAnsweringId] = useState("");
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
 
   const loadChallenges = useCallback(async () => {
     const { data, error } = await supabase
       .from("oycea_challenges")
-      .select("*")
+      .select("id,title,description,category,kind")
+      .eq("kind", "question")
       .order("created_at", { ascending: false });
 
     if (error) {
-      setMessage("Impossible de charger les défis : " + error.message);
+      setMessage("Impossible de charger les questions proposées.");
       return;
     }
 
     setChallenges((data ?? []) as Challenge[]);
   }, [supabase]);
 
-  const loadResponses = useCallback(async (sessionId: string) => {
+  const loadQuestions = useCallback(async (sessionId: string) => {
     const { data, error } = await supabase
-      .from("oycea_challenge_responses")
+      .from("oycea_couple_questions")
       .select("*")
-      .eq("session_id", sessionId);
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: true });
 
     if (error) {
-      setMessage("Impossible de charger les réponses : " + error.message);
+      setMessage(
+        "Impossible de charger les questions. Vérifie la table Supabase oycea_couple_questions."
+      );
       return;
     }
 
-    setResponses((data ?? []) as ResponseRow[]);
+    setQuestions((data ?? []) as CoupleQuestion[]);
   }, [supabase]);
 
   const loadSession = useCallback(async (sessionId: string) => {
@@ -115,23 +110,13 @@ export default function QuestionsPage() {
       .single();
 
     if (error || !data) {
-      setMessage("Impossible de retrouver cette session.");
+      setMessage("Impossible de retrouver cette salle.");
       return;
     }
 
-    const current = data as Session;
-    setSession(current);
-
-    const { data: challenge } = await supabase
-      .from("oycea_challenges")
-      .select("*")
-      .eq("id", current.challenge_id)
-      .single();
-
-    if (challenge) setSelectedChallenge(challenge as Challenge);
-
-    await loadResponses(current.id);
-  }, [supabase, loadResponses]);
+    setSession(data as Session);
+    await loadQuestions(sessionId);
+  }, [supabase, loadQuestions]);
 
   useEffect(() => {
     let active = true;
@@ -151,39 +136,33 @@ export default function QuestionsPage() {
 
       const savedId = sessionStorage.getItem("oycea_challenge_session_id");
 
-     
-if (savedId) {
-  const { data: saved } = await supabase
-    .from("oycea_challenge_sessions")
-    .select("*")
-    .eq("id", savedId)
-    .maybeSingle();
+      if (savedId) {
+        const { data: saved } = await supabase
+          .from("oycea_challenge_sessions")
+          .select("*")
+          .eq("id", savedId)
+          .maybeSingle();
 
-  if (
-    active &&
-    saved &&
-    (saved.host_id === data.user.id || saved.guest_id === data.user.id)
-  ) {
-    await loadSession(saved.id);
+        if (
+          active &&
+          saved &&
+          (saved.host_id === data.user.id || saved.guest_id === data.user.id)
+        ) {
+          const { data: challenge } = await supabase
+            .from("oycea_challenges")
+            .select("kind")
+            .eq("id", saved.challenge_id)
+            .maybeSingle();
 
-    const { data: savedChallenge } = await supabase
-      .from("oycea_challenges")
-      .select("kind")
-      .eq("id", saved.challenge_id)
-      .maybeSingle();
-
-    if (active) {
-      if (savedChallenge?.kind === "question") {
-        setActivity("questions");
-      } else {
-        sessionStorage.removeItem("oycea_challenge_session_id");
+          if (challenge?.kind === "question") {
+            await loadSession(saved.id);
+          } else {
+            sessionStorage.removeItem("oycea_challenge_session_id");
+          }
+        } else {
+          sessionStorage.removeItem("oycea_challenge_session_id");
+        }
       }
-    }
-  } else {
-    sessionStorage.removeItem("oycea_challenge_session_id");
-  }
-}
-
 
       if (active) setLoading(false);
     }
@@ -199,7 +178,7 @@ if (savedId) {
     if (!session?.id) return;
 
     const sessionChannel = supabase
-      .channel(`oycea-challenge-session-${session.id}`)
+      .channel(`couple-session-${session.id}`)
       .on(
         "postgres_changes",
         {
@@ -208,39 +187,32 @@ if (savedId) {
           table: "oycea_challenge_sessions",
           filter: `id=eq.${session.id}`,
         },
-        () => {
-          void loadSession(session.id);
-        }
+        () => void loadSession(session.id)
       )
       .subscribe();
 
-    const responseChannel = supabase
-      .channel(`oycea-challenge-responses-${session.id}`)
+    const questionsChannel = supabase
+      .channel(`couple-questions-${session.id}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
-          table: "oycea_challenge_responses",
+          table: "oycea_couple_questions",
           filter: `session_id=eq.${session.id}`,
         },
-        () => {
-          void loadResponses(session.id);
-        }
+        () => void loadQuestions(session.id)
       )
       .subscribe();
 
     return () => {
       void supabase.removeChannel(sessionChannel);
-      void supabase.removeChannel(responseChannel);
+      void supabase.removeChannel(questionsChannel);
     };
-  }, [session?.id, supabase, loadSession, loadResponses]);
+  }, [session?.id, supabase, loadSession, loadQuestions]);
 
-async function createSession(
-  challenge: Challenge,
-  targetActivity: "defis" | "questions" = "defis"
-) {
-        if (!userId || busy) return;
+  async function createSession(challenge: Challenge) {
+    if (!userId || busy) return;
 
     setBusy(true);
     setMessage("");
@@ -260,14 +232,10 @@ async function createSession(
           .select("*")
           .single();
 
-        if (error) {
-          if (error.code === "23505") continue;
-          setMessage(error.message);
-          return;
-        }
+        if (error?.code === "23505") continue;
 
-        if (!data) {
-          setMessage("Impossible de créer la session.");
+        if (error || !data) {
+          setMessage(error?.message ?? "Impossible de créer la salle.");
           return;
         }
 
@@ -276,128 +244,71 @@ async function createSession(
       }
 
       if (!created) {
-        setMessage((current) => current || "Impossible de créer la session.");
+        setMessage("Impossible de créer un code de salle. Réessaie.");
         return;
       }
 
       sessionStorage.setItem("oycea_challenge_session_id", created.id);
       setSession(created);
-      setSelectedChallenge(challenge);
-      setResponses([]);
-      setAnswer("");
-      setProofUrl("");
-setActivity(targetActivity);
+      setQuestions([]);
+      setAnswerDrafts({});
+      setQuestionInput("");
     } finally {
       setBusy(false);
     }
   }
 
-
-async function joinSession(
-  targetActivity: "defis" | "questions" = "defis"
-) {
-  if (!roomInput.trim() || busy) return;
-
-  setBusy(true);
-  setMessage("");
-
-  try {
-    const { data, error } = await supabase.rpc("join_oycea_challenge", {
-      p_room_code: roomInput.trim().toUpperCase(),
-    });
-
-    if (error) {
-      setMessage("Impossible de rejoindre la salle : " + error.message);
-      return;
-    }
-
-    const joined = Array.isArray(data) ? data[0] : data;
-
-    if (!joined?.id) {
-      setMessage("Aucune session trouvée avec ce code.");
-      return;
-    }
-
-    sessionStorage.setItem("oycea_challenge_session_id", joined.id);
-
-    await loadSession(joined.id);
-
-    const { data: joinedChallenge, error: challengeError } = await supabase
-      .from("oycea_challenges")
-      .select("kind")
-      .eq("id", joined.challenge_id)
-      .maybeSingle();
-
-    if (challengeError) {
-      setMessage("La salle est rejointe, mais le type de jeu n'a pas pu être chargé.");
-    }
-
-    if (targetActivity === "questions" && joinedChallenge?.kind !== "question") {
-      sessionStorage.removeItem("oycea_challenge_session_id");
-      setSession(null);
-      setSelectedChallenge(null);
-      setMessage("Ce code correspond à un défi, pas à une question express.");
-      return;
-    }
-
-    setActivity(
-      joinedChallenge?.kind === "question" ? "questions" : targetActivity
-    );
-
-    setRoomInput("");
-  } finally {
-    setBusy(false);
-  }
-}
-
-  async function createCustomChallenge(event: React.FormEvent<HTMLFormElement>) {
+  async function joinSession(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!userId || !customTitle.trim() || !customDescription.trim() || busy) {
-      return;
-    }
+    if (!roomInput.trim() || busy) return;
 
     setBusy(true);
     setMessage("");
 
     try {
-      const { data, error } = await supabase
-        .from("oycea_challenges")
-        .insert({
-          title: customTitle.trim(),
-          description: customDescription.trim(),
-          category: customCategory,
-          kind: customKind,
-          options: [],
-          is_daily: false,
-          is_builtin: false,
-          created_by: userId,
-        })
-        .select("*")
-        .single();
+      const { data, error } = await supabase.rpc("join_oycea_challenge", {
+        p_room_code: roomInput.trim().toUpperCase(),
+      });
 
       if (error) {
-        setMessage("Création impossible : " + error.message);
+        setMessage("Impossible de rejoindre cette salle : " + error.message);
         return;
       }
 
-      setChallenges((current) => [data as Challenge, ...current]);
-      setCustomTitle("");
-      setCustomDescription("");
-      setShowCreator(false);
-      setMessage("Ton défi a bien été enregistré.");
+      const joined = Array.isArray(data) ? data[0] : data;
+
+      if (!joined?.id) {
+        setMessage("Aucune salle trouvée avec ce code.");
+        return;
+      }
+
+      const { data: challenge } = await supabase
+        .from("oycea_challenges")
+        .select("kind")
+        .eq("id", joined.challenge_id)
+        .maybeSingle();
+
+      if (challenge?.kind !== "question") {
+        setMessage("Ce code correspond à un défi, pas à Questions express.");
+        return;
+      }
+
+      sessionStorage.setItem("oycea_challenge_session_id", joined.id);
+      setRoomInput("");
+      await loadSession(joined.id);
     } finally {
       setBusy(false);
     }
   }
 
-  async function submitResponse(event: React.FormEvent<HTMLFormElement>) {
+  async function askQuestion(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!session || !userId || !answer.trim() || busy) return;
+    if (!session || !userId || !questionInput.trim() || busy) return;
 
     if (session.status !== "playing") {
-      setMessage("Ton partenaire doit rejoindre la session avant de répondre.");
+      setMessage("Attends que ton partenaire rejoigne la salle.");
       return;
     }
 
@@ -406,27 +317,63 @@ async function joinSession(
 
     try {
       const { error } = await supabase
-        .from("oycea_challenge_responses")
-        .upsert(
-          {
-            session_id: session.id,
-            user_id: userId,
-            answer: answer.trim(),
-            proof_url: proofUrl.trim() || null,
-            completed_at: new Date().toISOString(),
-          },
-          { onConflict: "session_id,user_id" }
-        );
+        .from("oycea_couple_questions")
+        .insert({
+          session_id: session.id,
+          asked_by: userId,
+          question: questionInput.trim(),
+        });
+
+      if (error) {
+        setMessage("Envoi impossible : " + error.message);
+        return;
+      }
+
+      setQuestionInput("");
+      await loadQuestions(session.id);
+      setMessage("Ta question a été envoyée à ton partenaire 💌");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function answerQuestion(question: CoupleQuestion) {
+    const answer = (answerDrafts[question.id] ?? "").trim();
+
+    if (!answer || !userId || answeringId) return;
+
+    setAnsweringId(question.id);
+    setMessage("");
+
+    try {
+      const { data, error } = await supabase
+        .from("oycea_couple_questions")
+        .update({
+          answer,
+          answered_by: userId,
+          answered_at: new Date().toISOString(),
+        })
+        .eq("id", question.id)
+        .is("answered_by", null)
+        .select("id")
+        .maybeSingle();
 
       if (error) {
         setMessage("Impossible d'enregistrer ta réponse : " + error.message);
         return;
       }
 
-      await loadResponses(session.id);
-      setMessage("Ta réponse est enregistrée.");
+      if (!data) {
+        setMessage("Cette question a déjà reçu une réponse.");
+        await loadQuestions(question.session_id);
+        return;
+      }
+
+      setAnswerDrafts((current) => ({ ...current, [question.id]: "" }));
+      await loadQuestions(question.session_id);
+      setMessage("Réponse envoyée avec amour 💗");
     } finally {
-      setBusy(false);
+      setAnsweringId("");
     }
   }
 
@@ -436,498 +383,453 @@ async function joinSession(
     try {
       await navigator.clipboard.writeText(session.room_code);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
+      window.setTimeout(() => setCopied(false), 1500);
     } catch {
-      setMessage("Copie impossible. Note le code affiché.");
+      setMessage("Copie impossible. Recopie le code affiché.");
     }
   }
 
   function leaveSession() {
     sessionStorage.removeItem("oycea_challenge_session_id");
     setSession(null);
-    setSelectedChallenge(null);
-    setResponses([]);
-    setAnswer("");
-    setProofUrl("");
+    setQuestions([]);
+    setAnswerDrafts({});
+    setQuestionInput("");
     setMessage("");
-    setActivity("questions");
   }
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#fff9f7]">
-        <LoaderCircle className="animate-spin text-[#c98298]" size={28} />
+      <main className="flex min-h-screen items-center justify-center bg-[#fff8f7]">
+        <LoaderCircle className="animate-spin text-[#cb7896]" size={30} />
       </main>
     );
   }
 
   if (activity === "morpion") {
-    return <MorpionGame onBack={() => setActivity("menu")} />;
+    return <MorpionGame onBack={() => setActivity("questions")} />;
   }
 
-  const myResponse = responses.find((row) => row.user_id === userId);
-  const partnerResponse = responses.find((row) => row.user_id !== userId);
-  const bothAnswered = Boolean(myResponse && partnerResponse);
+  const myQuestions = questions.filter((q) => q.asked_by === userId);
+  const receivedQuestions = questions.filter((q) => q.asked_by !== userId);
+  const unanswered = receivedQuestions.filter((q) => !q.answered_by);
+  const answered = questions.filter((q) => q.answered_by);
   const isHost = session?.host_id === userId;
 
   return (
-    <main className="min-h-screen bg-[#fff9f7] px-5 py-8 text-[#49353d] sm:px-8">
-      <div className="mx-auto max-w-5xl">
+    <main className="min-h-screen overflow-hidden bg-[#fff8f7] text-[#49343e]">
+      <div className="pointer-events-none absolute left-0 top-24 h-64 w-64 rounded-full bg-[#f8dce5] opacity-40 blur-3xl" />
+      <div className="pointer-events-none absolute right-0 top-96 h-72 w-72 rounded-full bg-[#f8e8d9] opacity-50 blur-3xl" />
+
+      <div className="relative mx-auto max-w-6xl px-4 py-5 sm:px-8 sm:py-8">
         <header className="mb-10 flex items-center justify-between">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-sm text-[#977781] hover:text-[#49353d]"
+            className="inline-flex items-center gap-2 text-sm text-[#927782] transition hover:text-[#49343e]"
           >
             <ArrowLeft size={17} />
             Notre cocon
           </Link>
           <Link href="/" className="text-2xl font-semibold tracking-tight">
-            oycea<span className="text-[#d58ba2]">.</span>
+            oycea<span className="text-[#d78ca5]">.</span>
           </Link>
         </header>
 
         {message && (
-          <p
+          <div
             role="status"
-            className="mb-6 rounded-xl border border-[#f0d2d9] bg-white px-4 py-3 text-sm text-[#a34d68]"
+            className="mb-6 flex items-start gap-3 rounded-2xl border border-[#f0d8e0] bg-white/90 px-4 py-3 text-sm text-[#9c5870] shadow-sm"
           >
-            {message}
-          </p>
+            <Heart size={17} className="mt-0.5 shrink-0" />
+            <p>{message}</p>
+          </div>
         )}
 
-        {activity === "menu" && (
+        {!session ? (
           <>
-            <section className="mb-10">
-              <span className="inline-flex items-center gap-2 rounded-full border border-[#f1dce2] bg-white px-4 py-2 text-xs tracking-wide text-[#ad7187]">
-                <Heart size={13} />
-                NOTRE PETIT UNIVERS
-              </span>
-              <h1 className="mt-5 text-4xl font-medium tracking-tight sm:text-5xl">
-                On joue à quoi,
-                <br />
-                <span className="font-serif italic text-[#cc819a]">
-                  aujourd&apos;hui ?
+            <section className="relative mb-8 overflow-hidden rounded-[2rem] bg-[#563c49] px-6 py-8 text-white sm:px-10 sm:py-12">
+              <div className="absolute -right-12 -top-16 h-64 w-64 rounded-full border border-white/10" />
+              <div className="absolute -right-2 -top-6 h-44 w-44 rounded-full border border-white/10" />
+              <div className="relative max-w-2xl">
+                <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs tracking-wide text-[#f8d9e3]">
+                  <Heart size={13} />
+                  VOTRE PETIT JARDIN SECRET
                 </span>
-              </h1>
-              <p className="mt-4 max-w-lg leading-7 text-[#907b82]">
-                Des jeux, des confidences et des petits défis pour se retrouver,
-                même à distance.
-              </p>
+                <h1 className="mt-6 text-4xl font-medium leading-tight sm:text-6xl">
+                  Et si on apprenait
+                  <br />
+                  <span className="font-serif italic text-[#f2b9cd]">
+                    encore à s’aimer ?
+                  </span>
+                </h1>
+                <p className="mt-5 max-w-lg text-sm leading-7 text-white/75 sm:text-base">
+                  Pose une question, découvre sa façon de penser et partage
+                  ces petites choses qu’on ne se dit pas toujours.
+                </p>
+                <div className="mt-7 flex flex-wrap gap-3 text-xs text-white/80">
+                  <span className="rounded-full bg-white/10 px-3 py-2">💌 Questions personnalisées</span>
+                  <span className="rounded-full bg-white/10 px-3 py-2">🤍 Réponses à deux</span>
+                  <span className="rounded-full bg-white/10 px-3 py-2">🌙 Même à distance</span>
+                </div>
+              </div>
             </section>
 
-            <div className="grid gap-5 sm:grid-cols-2">
-              <button
-                onClick={() => setActivity("morpion")}
-                className="rounded-3xl border border-[#f0dfe3] bg-white p-6 text-left transition hover:-translate-y-1 hover:shadow-lg"
-              >
-                <Gamepad2 className="text-[#c98298]" size={25} />
-                <h2 className="mt-5 text-xl font-medium">Morpion</h2>
-                <p className="mt-2 text-sm leading-6 text-[#907b82]">
-                  Une petite compétition, juste vous deux.
-                </p>
-                <span className="mt-5 inline-flex items-center gap-2 text-sm text-[#b8768d]">
-                  Jouer <ChevronRight size={16} />
-                </span>
-              </button>
-
-              <button
-                onClick={() => setActivity("defis")}
-                className="rounded-3xl border border-[#f0dfe3] bg-white p-6 text-left transition hover:-translate-y-1 hover:shadow-lg"
-              >
-                <Sparkles className="text-[#9e91c7]" size={25} />
-                <h2 className="mt-5 text-xl font-medium">Nos défis</h2>
-                <p className="mt-2 text-sm leading-6 text-[#907b82]">
-                  Des missions romantiques, des questions et vos propres idées.
-                </p>
-                <span className="mt-5 inline-flex items-center gap-2 text-sm text-[#b8768d]">
-                  Découvrir <ChevronRight size={16} />
-                </span>
-              </button>
-
-              <button
-                onClick={() => setActivity("questions")}
-                className="rounded-3xl border border-[#f0dfe3] bg-white p-6 text-left transition hover:-translate-y-1 hover:shadow-lg sm:col-span-2"
-              >
-                <MessageCircleHeart className="text-[#c28e58]" size={25} />
-                <h2 className="mt-5 text-xl font-medium">Questions express</h2>
-                <p className="mt-2 text-sm leading-6 text-[#907b82]">
-                  Choisissez vos réponses et comparez vos points de vue.
-                </p>
-                <span className="mt-5 inline-flex items-center gap-2 text-sm text-[#b8768d]">
-                  Commencer <ChevronRight size={16} />
-                </span>
-              </button>
-            </div>
-          </>
-        )}
-
-        {activity === "defis" && !session && (
-          <>
-            <button
-              onClick={() => setActivity("menu")}
-              className="mb-6 text-sm text-[#977781] hover:text-[#49353d]"
-            >
-              ← Tous les jeux
-            </button>
-
-            <h1 className="text-3xl font-medium">Nos défis</h1>
-            <p className="mt-2 text-sm leading-6 text-[#907b82]">
-              Choisissez un défi, créez une salle et partagez le code avec votre
-              partenaire.
-            </p>
-
-            <div className="mt-6 rounded-3xl border border-[#f0dfe3] bg-white p-5">
-              <h2 className="font-medium">Rejoindre avec un code</h2>
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void joinSession();
-                }}
-                className="mt-3 flex gap-2"
-              >
-                <input
-                  value={roomInput}
-                  onChange={(event) =>
-                    setRoomInput(event.target.value.toUpperCase())
-                  }
-                  maxLength={6}
-                  placeholder="CODE"
-                  className="min-w-0 flex-1 rounded-full border border-[#eedde1] bg-[#fffafa] px-4 py-3 text-sm uppercase outline-none focus:border-[#c98298]"
-                />
-                <button
-                  disabled={busy}
-                  className="rounded-full bg-[#c98298] px-5 py-3 text-sm text-white disabled:opacity-60"
-                >
-                  Rejoindre
-                </button>
-              </form>
-            </div>
-
-            <div className="mt-8 flex items-center justify-between gap-3">
-              <h2 className="text-xl font-medium">Choisir un défi</h2>
-              <button
-                onClick={() => setShowCreator((value) => !value)}
-                className="rounded-full border border-[#e9d1d8] px-4 py-2.5 text-sm text-[#ad7187] hover:bg-[#fff2f5]"
-              >
-                {showCreator ? "Fermer" : "+ Créer le mien"}
-              </button>
-            </div>
-
-            {showCreator && (
-              <form
-                onSubmit={(event) => void createCustomChallenge(event)}
-                className="mt-4 space-y-4 rounded-3xl border border-[#f0dfe3] bg-white p-5"
-              >
-                <h3 className="font-medium">Notre défi personnalisé</h3>
-                <input
-                  required
-                  maxLength={120}
-                  value={customTitle}
-                  onChange={(event) => setCustomTitle(event.target.value)}
-                  placeholder="Titre du défi"
-                  className="w-full rounded-xl border border-[#eedde1] bg-[#fffafa] px-4 py-3 text-sm outline-none focus:border-[#c98298]"
-                />
-                <textarea
-                  required
-                  maxLength={1000}
-                  rows={3}
-                  value={customDescription}
-                  onChange={(event) => setCustomDescription(event.target.value)}
-                  placeholder="Expliquez ce qu'il faut faire ou répondre…"
-                  className="w-full rounded-xl border border-[#eedde1] bg-[#fffafa] px-4 py-3 text-sm outline-none focus:border-[#c98298]"
-                />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <select
-                    value={customCategory}
-                    onChange={(event) => setCustomCategory(event.target.value)}
-                    className="rounded-xl border border-[#eedde1] bg-white px-4 py-3 text-sm"
-                  >
-                    <option>Complicité</option>
-                    <option>Romantique</option>
-                    <option>Action</option>
-                    <option>Découverte</option>
-                  </select>
-                  <select
-                    value={customKind}
-                    onChange={(event) =>
-                      setCustomKind(event.target.value as "question" | "action")
-                    }
-                    className="rounded-xl border border-[#eedde1] bg-white px-4 py-3 text-sm"
-                  >
-                    <option value="action">Action à réaliser</option>
-                    <option value="question">Question à répondre</option>
-                  </select>
-                </div>
-                <button
-                  disabled={busy}
-                  className="rounded-full bg-[#c98298] px-5 py-3 text-sm text-white disabled:opacity-60"
-                >
-                  {busy ? "Enregistrement…" : "Enregistrer le défi"}
-                </button>
-              </form>
-            )}
-
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              {challenges.map((challenge) => (
-                <article
-                  key={challenge.id}
-                  className="rounded-3xl border border-[#f0dfe3] bg-white p-5"
-                >
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="rounded-full bg-[#fff0f4] px-3 py-1.5 text-[#ad7187]">
-                      {challenge.category}
-                    </span>
-                    {challenge.is_daily && (
-                      <span className="rounded-full bg-[#f8f0ff] px-3 py-1.5 text-[#897bb6]">
-                        Défi du jour
-                      </span>
-                    )}
+            <div className="grid gap-5 lg:grid-cols-[1fr_0.85fr]">
+              <section className="rounded-[1.75rem] border border-[#f0dfe4] bg-white/90 p-5 shadow-[0_15px_45px_rgba(105,63,79,0.04)] sm:p-7">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#fff0f4] text-[#c77994]">
+                    <MessageCircleHeart size={23} />
                   </div>
-                  <h3 className="mt-4 font-medium">{challenge.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-[#907b82]">
-                    {challenge.description}
-                  </p>
-                  <button
-                    onClick={() => void createSession(challenge)}
-                    disabled={busy}
-                    className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#c98298] px-4 py-2.5 text-sm text-white disabled:opacity-60"
-                  >
-                    Lancer ce défi <ChevronRight size={15} />
-                  </button>
-                </article>
-              ))}
-            </div>
-
-            {challenges.length === 0 && (
-              <p className="mt-6 rounded-2xl bg-white p-5 text-sm text-[#907b82]">
-                Aucun défi disponible pour le moment. Vérifie que les quatre
-                défis prédéfinis ont bien été insérés dans Supabase.
-              </p>
-            )}
-          </>
-        )}
-
-        {activity === "questions" && session && selectedChallenge && (
-          <section className="mx-auto max-w-2xl">
-            <button
-              onClick={leaveSession}
-              className="mb-6 text-sm text-[#977781] hover:text-[#49353d]"
-            >
-              ← Retour aux jeux
-            </button>
-
-            <div className="rounded-3xl border border-[#f0dfe3] bg-white p-6 shadow-[0_18px_60px_rgba(125,76,91,0.05)] sm:p-8">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs tracking-widest text-[#b28a97]">
-                    {selectedChallenge.category.toUpperCase()}
-                  </p>
-                  <h1 className="mt-3 text-3xl font-medium">
-                    {selectedChallenge.title}
-                  </h1>
+                  <div>
+                    <h2 className="text-xl font-medium">Créer notre espace</h2>
+                    <p className="mt-1 text-sm leading-6 text-[#947d86]">
+                      Choisis une question de départ, puis invite ton partenaire
+                      avec un code privé.
+                    </p>
+                  </div>
                 </div>
-                <Heart className="shrink-0 text-[#c98298]" size={25} />
-              </div>
 
-              <p className="mt-4 leading-7 text-[#907b82]">
-                {selectedChallenge.description}
-              </p>
-
-              <div className="mt-6 rounded-2xl bg-[#fff9f7] p-4">
-                <p className="text-xs tracking-wide text-[#a78b93]">
-                  CODE DE VOTRE SALLE
-                </p>
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <span className="text-2xl font-semibold tracking-[0.2em]">
-                    {session.room_code}
-                  </span>
-                  <button
-                    onClick={() => void copyCode()}
-                    className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm text-[#ad7187]"
-                  >
-                    <Copy size={14} />
-                    {copied ? "Copié !" : "Copier"}
-                  </button>
+                <div className="mt-6 space-y-3">
+                  {challenges.slice(0, 3).map((challenge) => (
+                    <button
+                      key={challenge.id}
+                      onClick={() => void createSession(challenge)}
+                      disabled={busy}
+                      className="group flex w-full items-center justify-between gap-4 rounded-2xl border border-[#f0e3e7] bg-[#fffafa] p-4 text-left transition hover:border-[#dfadbd] hover:bg-[#fff2f5] disabled:opacity-50"
+                    >
+                      <div>
+                        <p className="text-xs text-[#bb8196]">{challenge.category}</p>
+                        <p className="mt-1 font-medium">{challenge.title}</p>
+                        <p className="mt-1 line-clamp-2 text-sm leading-5 text-[#947d86]">
+                          {challenge.description}
+                        </p>
+                      </div>
+                      <ChevronRight className="shrink-0 text-[#c98298] transition group-hover:translate-x-1" size={20} />
+                    </button>
+                  ))}
                 </div>
-                <p className="mt-3 flex items-center gap-2 text-sm text-[#907b82]">
-                  <Users size={16} />
-                  {session.guest_id
-                    ? "Vous êtes deux dans la salle."
-                    : "En attente de ton partenaire. Envoie-lui le code."}
-                </p>
-              </div>
 
-              {session.status === "playing" && (
-                <>
-                  <form onSubmit={(event) => void submitResponse(event)}>
-                    <label className="mt-7 block text-sm font-medium">
-                      {myResponse
-                        ? "Modifie ta réponse si tu le souhaites"
-                        : "Ta réponse"}
-                    </label>
-                    <textarea
-                      required
-                      maxLength={5000}
-                      rows={5}
-                      value={answer}
-                      onChange={(event) => setAnswer(event.target.value)}
-                      placeholder="Écris ici ta réponse ou raconte comment tu as réalisé le défi…"
-                      className="mt-3 w-full rounded-2xl border border-[#eedde1] bg-[#fffafa] p-4 text-sm leading-6 outline-none focus:border-[#c98298]"
-                    />
-                    <label className="mt-4 block text-sm font-medium">
-                      Lien vers une photo (facultatif)
-                    </label>
+                {challenges.length === 0 && (
+                  <p className="mt-5 rounded-2xl bg-[#fff7f8] p-4 text-sm leading-6 text-[#947d86]">
+                    Aucune question de départ disponible. Ajoute au moins une
+                    entrée avec kind = question dans oycea_challenges.
+                  </p>
+                )}
+
+                {busy && (
+                  <p className="mt-4 flex items-center gap-2 text-sm text-[#a77889]">
+                    <LoaderCircle className="animate-spin" size={16} />
+                    Préparation de votre espace…
+                  </p>
+                )}
+              </section>
+
+              <div className="space-y-5">
+                <section className="rounded-[1.75rem] border border-[#f0dfe4] bg-white/90 p-5 shadow-[0_15px_45px_rgba(105,63,79,0.04)] sm:p-7">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f3edff] text-[#9480c5]">
+                    <Users size={23} />
+                  </div>
+                  <h2 className="mt-4 text-xl font-medium">Il t’a déjà envoyé un code ?</h2>
+                  <p className="mt-2 text-sm leading-6 text-[#947d86]">
+                    Entre son code pour retrouver votre espace et répondre à
+                    ses questions.
+                  </p>
+                  <form onSubmit={(event) => void joinSession(event)} className="mt-5">
                     <input
-                      type="url"
-                      value={proofUrl}
-                      onChange={(event) => setProofUrl(event.target.value)}
-                      placeholder="https://…"
-                      className="mt-2 w-full rounded-xl border border-[#eedde1] bg-[#fffafa] px-4 py-3 text-sm outline-none focus:border-[#c98298]"
+                      value={roomInput}
+                      onChange={(event) => setRoomInput(event.target.value.toUpperCase())}
+                      maxLength={6}
+                      required
+                      placeholder="ENTRE LE CODE"
+                      className="w-full rounded-2xl border border-[#eddae1] bg-[#fffafa] px-4 py-4 text-center text-lg font-semibold uppercase tracking-[0.25em] outline-none transition placeholder:text-sm placeholder:font-normal placeholder:tracking-normal focus:border-[#cb7896]"
                     />
                     <button
-                      disabled={busy || !answer.trim()}
-                      className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-[#c98298] px-6 py-3.5 text-sm font-medium text-white disabled:opacity-60"
+                      disabled={busy}
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#563c49] px-5 py-3.5 text-sm font-medium text-white transition hover:bg-[#6a4858] disabled:opacity-50"
                     >
-                      {busy ? (
-                        <LoaderCircle size={16} className="animate-spin" />
-                      ) : (
-                        <Check size={16} />
-                      )}
-                      {myResponse ? "Mettre à jour ma réponse" : "Envoyer ma réponse"}
+                      {busy ? <LoaderCircle className="animate-spin" size={17} /> : <Heart size={16} />}
+                      Rejoindre notre espace
                     </button>
                   </form>
+                </section>
 
-                  <div className="mt-8 border-t border-[#f3e8ea] pt-6">
-                    <h2 className="font-medium">Vos réponses</h2>
-                    {!bothAnswered ? (
-                      <p className="mt-2 text-sm leading-6 text-[#907b82]">
-                        {myResponse
-                          ? "Ta réponse est enregistrée. Elle restera privée jusqu'à ce que ton partenaire ait répondu lui aussi."
-                          : "Répondez chacun de votre côté. Vos réponses seront dévoilées lorsque vous aurez tous les deux participé."}
-                      </p>
-                    ) : (
-                      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                        {[myResponse, partnerResponse].map((row, index) =>
-                          row ? (
-                            <div
-                              key={row.id}
-                              className="rounded-2xl bg-[#fff9f7] p-4"
-                            >
-                              <p className="text-xs text-[#ad7187]">
-                                {row.user_id === userId ? "Ta réponse" : "Réponse de ton partenaire"}
-                              </p>
-                              <p className="mt-3 whitespace-pre-wrap text-sm leading-6">
-                                {row.answer}
-                              </p>
-                              {row.proof_url && (
-                                <a
-                                  href={row.proof_url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="mt-3 inline-block text-sm text-[#ad7187] underline"
-                                >
-                                  Voir la photo
-                                </a>
-                              )}
-                            </div>
-                          ) : null
-                        )}
-                      </div>
-                    )}
+                <button
+                  onClick={() => setActivity("morpion")}
+                  className="flex w-full items-center gap-4 rounded-[1.5rem] border border-[#f0dfe4] bg-white/90 p-5 text-left transition hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#fff0f4] text-[#c77994]">
+                    <Sparkles size={21} />
                   </div>
-                </>
-              )}
+                  <div className="flex-1">
+                    <p className="font-medium">Envie d’un petit jeu ?</p>
+                    <p className="mt-1 text-sm text-[#947d86]">Retrouve votre partie de morpion.</p>
+                  </div>
+                  <ChevronRight size={18} className="text-[#c98298]" />
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <section className="mx-auto max-w-4xl">
+            <button
+              onClick={leaveSession}
+              className="mb-5 inline-flex items-center gap-2 text-sm text-[#927782] transition hover:text-[#49343e]"
+            >
+              <ArrowLeft size={16} />
+              Quitter cet espace
+            </button>
+
+            <div className="overflow-hidden rounded-[2rem] border border-[#f0dfe4] bg-white shadow-[0_18px_60px_rgba(105,63,79,0.06)]">
+              <div className="relative overflow-hidden bg-[#563c49] px-5 py-7 text-white sm:px-8">
+                <div className="absolute -right-8 -top-14 h-48 w-48 rounded-full border border-white/10" />
+                <div className="relative flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs tracking-[0.2em] text-[#f2c6d5]">VOTRE CONVERSATION</p>
+                    <h1 className="mt-3 text-3xl font-medium sm:text-4xl">
+                      Un peu plus près <span className="font-serif italic text-[#f2b9cd]">de toi.</span>
+                    </h1>
+                    <p className="mt-3 max-w-md text-sm leading-6 text-white/70">
+                      Les meilleures conversations commencent parfois par une seule question.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/15 bg-white/10 p-3">
+                    <Heart className="text-[#f2b9cd]" size={25} />
+                  </div>
+                </div>
+
+                <div className="relative mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/10 p-4">
+                  <div>
+                    <p className="text-[11px] tracking-widest text-white/60">CODE DE VOTRE ESPACE</p>
+                    <p className="mt-1 text-2xl font-semibold tracking-[0.22em]">{session.room_code}</p>
+                  </div>
+                  <button
+                    onClick={() => void copyCode()}
+                    className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-[#563c49] transition hover:bg-[#fff0f4]"
+                  >
+                    <Copy size={15} />
+                    {copied ? "Copié !" : "Copier le code"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-0 md:grid-cols-[0.8fr_1.2fr]">
+                <aside className="border-b border-[#f3e7eb] bg-[#fffafb] p-5 sm:p-6 md:border-b-0 md:border-r">
+                  <p className="text-xs font-medium tracking-widest text-[#b98598]">VOTRE PETIT CERCLE</p>
+                  <div className="mt-5 flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f8dce6] text-[#a95574]">
+                      <Heart size={19} fill="currentColor" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Toi</p>
+                      <p className="text-xs text-[#9b828c]">{isHost ? "Créateur·rice de la salle" : "Invité·e"}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center gap-3">
+                    <div className={`flex h-11 w-11 items-center justify-center rounded-full ${session.guest_id ? "bg-[#e8e0fa] text-[#8873bd]" : "bg-[#f1e9ec] text-[#a48e96]"}`}>
+                      <Users size={19} />
+                    </div>
+                    <div>
+                      <p className="font-medium">Ton partenaire</p>
+                      <p className="text-xs text-[#9b828c]">
+                        {session.guest_id ? "Connecté à votre espace" : "Pas encore arrivé"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {session.status !== "playing" && (
+                    <div className="mt-6 rounded-2xl border border-[#f0dce3] bg-white p-4">
+                      <div className="flex items-center gap-2 text-[#ba7791]">
+                        <LoaderCircle className="animate-spin" size={17} />
+                        <p className="text-sm font-medium">On attend ta moitié…</p>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-[#947d86]">
+                        Envoie-lui le code ci-dessus. Dès qu’il ou elle rejoint,
+                        vous pourrez vous poser vos questions.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="mt-6 rounded-2xl bg-[#f8efff] p-4">
+                    <div className="flex items-center gap-2 text-[#8d78bb]">
+                      <LockKeyhole size={16} />
+                      <p className="text-sm font-medium">Votre bulle à vous</p>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-[#8b7d9f]">
+                      Les questions de cet espace sont réservées aux deux membres de la salle.
+                    </p>
+                  </div>
+
+                  <div className="mt-6 flex gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#fff0f4] text-[#c77994]">
+                      <MessageCircleHeart size={19} />
+                    </div>
+                    <div>
+                      <p className="font-medium">Le principe</p>
+                      <p className="mt-1 text-sm leading-6 text-[#947d86]">
+                        Pose une question. Ton partenaire répond. Puis inversez les rôles !
+                      </p>
+                    </div>
+                  </div>
+                </aside>
+
+                <div className="min-w-0 p-5 sm:p-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-xl font-medium">Vos questions</h2>
+                      <p className="mt-1 text-sm text-[#947d86]">
+                        {questions.length} question{questions.length > 1 ? "s" : ""} partagée{questions.length > 1 ? "s" : ""}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-[#fff0f4] px-3 py-1.5 text-xs text-[#b76f8a]">
+                      {unanswered.length} en attente
+                    </span>
+                  </div>
+
+                  {session.status === "playing" && (
+                    <form onSubmit={(event) => void askQuestion(event)} className="mt-5 rounded-2xl border border-[#efdce2] bg-[#fffafb] p-4">
+                      <label htmlFor="couple-question" className="text-sm font-medium">
+                        Qu’est-ce que tu veux lui demander ?
+                      </label>
+                      <textarea
+                        id="couple-question"
+                        value={questionInput}
+                        onChange={(event) => setQuestionInput(event.target.value)}
+                        maxLength={1000}
+                        required
+                        rows={3}
+                        placeholder="Ex. Quel est ton plus beau souvenir avec moi ? 💗"
+                        className="mt-3 w-full resize-y rounded-xl border border-[#efdee4] bg-white p-3.5 text-sm leading-6 outline-none transition placeholder:text-[#b5a1a8] focus:border-[#cb7896]"
+                      />
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <p className="text-xs text-[#a18b94]">{questionInput.length}/1000</p>
+                        <button
+                          disabled={busy || !questionInput.trim()}
+                          className="inline-flex items-center gap-2 rounded-xl bg-[#c77994] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#b56884] disabled:opacity-50"
+                        >
+                          {busy ? <LoaderCircle className="animate-spin" size={16} /> : <Send size={15} />}
+                          Envoyer ma question
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {session.status === "playing" && questions.length === 0 && (
+                    <div className="mt-6 rounded-2xl border border-dashed border-[#e9cbd6] px-5 py-8 text-center">
+                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#fff0f4] text-[#c77994]">
+                        <MessageCircleHeart size={25} />
+                      </div>
+                      <h3 className="mt-4 font-medium">À vous de commencer 💌</h3>
+                      <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-[#947d86]">
+                        Écris ta première question. Elle apparaîtra ici pour ton partenaire.
+                      </p>
+                    </div>
+                  )}
+
+                  {session.status === "playing" && questions.length > 0 && (
+                    <div className="mt-5 space-y-4">
+                      {questions.map((question, index) => {
+                        const mine = question.asked_by === userId;
+                        const canAnswer = !mine && !question.answered_by;
+
+                        return (
+                          <article
+                            key={question.id}
+                            className={`rounded-2xl border p-4 ${
+                              mine
+                                ? "border-[#f0dce3] bg-[#fff7f9]"
+                                : "border-[#e7def5] bg-[#fbf9ff]"
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${mine ? "bg-[#f7dce6] text-[#ae5e7c]" : "bg-[#e9e0fa] text-[#8a73bb]"}`}>
+                                {mine ? <Heart size={16} /> : <MessageCircleHeart size={17} />}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <p className="text-xs font-medium text-[#947d86]">
+                                    {mine ? "Tu as demandé" : "Question pour toi"} · #{index + 1}
+                                  </p>
+                                  <span className={`rounded-full px-2.5 py-1 text-[11px] ${question.answered_by ? "bg-[#e7f5ed] text-[#4c8966]" : "bg-white text-[#a17f8d]"}`}>
+                                    {question.answered_by ? "Répondu" : mine ? "En attente" : "À répondre"}
+                                  </span>
+                                </div>
+                                <p className="mt-2 whitespace-pre-wrap break-words text-sm font-medium leading-6">
+                                  {question.question}
+                                </p>
+
+                                {question.answer && (
+                                  <div className="mt-3 rounded-xl border border-white bg-white/80 p-3">
+                                    <p className="flex items-center gap-2 text-xs font-medium text-[#9b6c80]">
+                                      <Heart size={13} />
+                                      {question.answered_by === userId ? "Ta réponse" : "Sa réponse"}
+                                    </p>
+                                    <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[#604b54]">
+                                      {question.answer}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {canAnswer && (
+                                  <div className="mt-3">
+                                    <textarea
+                                      rows={2}
+                                      maxLength={3000}
+                                      value={answerDrafts[question.id] ?? ""}
+                                      onChange={(event) =>
+                                        setAnswerDrafts((current) => ({
+                                          ...current,
+                                          [question.id]: event.target.value,
+                                        }))
+                                      }
+                                      placeholder="Écris ta réponse ici…"
+                                      className="w-full rounded-xl border border-[#e7def0] bg-white p-3 text-sm leading-6 outline-none focus:border-[#a18acb]"
+                                    />
+                                    <div className="mt-2 flex justify-end">
+                                      <button
+                                        type="button"
+                                        onClick={() => void answerQuestion(question)}
+                                        disabled={answeringId === question.id || !(answerDrafts[question.id] ?? "").trim()}
+                                        className="inline-flex items-center gap-2 rounded-xl bg-[#8872b7] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#7660a4] disabled:opacity-50"
+                                      >
+                                        {answeringId === question.id ? (
+                                          <LoaderCircle className="animate-spin" size={15} />
+                                        ) : (
+                                          <Check size={15} />
+                                        )}
+                                        Envoyer ma réponse
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {mine && !question.answered_by && (
+                                  <p className="mt-3 text-xs leading-5 text-[#a1828e]">
+                                    Ta question attend sa réponse. Elle s’affichera ici dès qu’elle sera envoyée.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {answered.length > 0 && (
+                    <div className="mt-6 flex items-center gap-2 rounded-xl bg-[#f3f8f3] p-3 text-sm text-[#60836a]">
+                      <Heart size={16} />
+                      Vous avez déjà partagé {answered.length} réponse{answered.length > 1 ? "s" : ""}. Continuez à vous découvrir !
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </section>
         )}
 
-       
-{activity === "questions" && !session && (
-      <>
-    <button
-      onClick={() => setActivity("menu")}
-      className="mb-6 text-sm text-[#977781] hover:text-[#49353d]"
-    >
-      ← Tous les jeux
-    </button>
-
-    <h1 className="text-3xl font-medium">Questions express</h1>
-    <p className="mt-2 leading-7 text-[#907b82]">
-      Une question chacun, sans voir la réponse de l&apos;autre.
-      Découvrez vos réponses ensemble.
-    </p>
-
-    <div className="mt-6 rounded-3xl border border-[#f0dfe3] bg-white p-5">
-      <h2 className="font-medium">Rejoindre avec un code</h2>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void joinSession("questions");
-        }}
-        className="mt-3 flex gap-2"
-      >
-        <input
-          value={roomInput}
-          onChange={(event) =>
-            setRoomInput(event.target.value.toUpperCase())
-          }
-          maxLength={6}
-          placeholder="CODE"
-          className="min-w-0 flex-1 rounded-full border border-[#eedde1] bg-[#fffafa] px-4 py-3 text-sm uppercase outline-none focus:border-[#c98298]"
-        />
-        <button
-          disabled={busy}
-          className="rounded-full bg-[#c98298] px-5 py-3 text-sm text-white disabled:opacity-60"
-        >
-          Rejoindre
-        </button>
-      </form>
-    </div>
-
-    <h2 className="mt-8 text-xl font-medium">Choisir une question</h2>
-
-    <div className="mt-4 grid gap-4 sm:grid-cols-2">
-      {challenges
-        .filter((challenge) => challenge.kind === "question")
-        .map((challenge) => (
-          <article
-            key={challenge.id}
-            className="rounded-3xl border border-[#f0dfe3] bg-white p-5"
-          >
-            <span className="rounded-full bg-[#fff0f4] px-3 py-1.5 text-xs text-[#ad7187]">
-              {challenge.category}
-            </span>
-
-            <h3 className="mt-4 font-medium">{challenge.title}</h3>
-
-            <p className="mt-2 text-sm leading-6 text-[#907b82]">
-              {challenge.description}
-            </p>
-
-            <button
-              onClick={() => void createSession(challenge, "questions")}
-              disabled={busy}
-              className="mt-5 rounded-full bg-[#c98298] px-4 py-2.5 text-sm text-white disabled:opacity-60"
-            >
-              Choisir cette question
-            </button>
-          </article>
-        ))}
-    </div>
-
-    {challenges.filter((challenge) => challenge.kind === "question").length === 0 && (
-      <p className="mt-5 rounded-2xl bg-white p-5 text-sm text-[#907b82]">
-        Aucune question n&apos;est enregistrée. Ajoute au moins une entrée
-        avec kind = &quot;question&quot; dans oycea_challenges.
-      </p>
-    )}
-  </>
-)}
-
-
-        <footer className="mt-12 flex items-center justify-center gap-2 text-xs text-[#b29aa1]">
+        <footer className="mt-10 flex items-center justify-center gap-2 pb-4 text-xs text-[#b29aa1]">
           <Heart size={12} />
-          Un petit monde, rien qu&apos;à nous · Oycea
+          Un petit monde, rien qu’à nous · Oycea
         </footer>
       </div>
     </main>
