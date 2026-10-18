@@ -468,9 +468,7 @@ async function joinSession(
     );
   }
 
-  if (activity === "morpion") {
-    return <MorpionGame onBack={() => setActivity("menu")} />;
-  }
+
   if (activity === "dames") {
   return <CheckersGame onBack={() => setActivity("menu")} />;
 }
@@ -482,6 +480,10 @@ if (activity === "puzzle") {
 if (activity === "forinarow") {
   return <FourInARowGame onBack={() => setActivity("menu")} />;
 }
+
+  if (activity === "morpion") {
+    return <MorpionGame onBack={() => setActivity("menu")} />;
+  }
 
 if (activity === "linked") {
   return <LinkedAdventureGame onBack={() => setActivity("menu")} />;
@@ -508,14 +510,7 @@ if (activity === "ludo") {
 };
 
 const games: GameCard[] = [
-  {
-    key: "morpion",
-    title: "Morpion",
-    short: "Une petite compétition, juste vous deux.",
-    description:
-      "Alignez trois symboles avant votre partenaire. Un classique rapide pour se taquiner et rigoler, même à distance.",
-    icon: <Gamepad2 size={40} />,
-  },
+
   {
     key: "dames",
     title: "Jeu de dames",
@@ -538,6 +533,14 @@ const games: GameCard[] = [
     short: "Alignez quatre jetons avant l'autre.",
     description:
       "Alignez quatre jetons avant votre partenaire dans ce duel stratégique à deux. Simple à comprendre, difficile à lâcher.",
+    icon: <Gamepad2 size={40} />,
+  },
+    {
+    key: "morpion",
+    title: "Morpion",
+    short: "Une petite compétition, juste vous deux.",
+    description:
+      "Alignez trois symboles avant votre partenaire. Un classique rapide pour se taquiner et rigoler, même à distance.",
     icon: <Gamepad2 size={40} />,
   },
   {

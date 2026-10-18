@@ -151,7 +151,6 @@ export default function Home() {
       <section id="home" className="hero-shell">
         <div className="hero-copy">
           <div className="eyebrow">
-            <Sparkles size={14} />
             <span>TON PETIT ENDROIT PRÉFÉRÉ</span>
           </div>
 

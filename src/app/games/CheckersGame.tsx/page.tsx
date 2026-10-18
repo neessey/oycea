@@ -147,14 +147,13 @@ export default function CheckersGame({
   }
 
   return (
-    <main className="min-h-screen bg-[#fff9f7] px-4 py-6 text-[#49353d] sm:px-8">
-      <div className="mx-auto max-w-xl">
+<main className="relative left-0 m-0 min-h-dvh w-full min-w-0 max-w-full overflow-x-clip bg-[#fff9f7] px-3 py-4 text-[#49353d] sm:px-8 sm:py-6">
+  <div className="mx-auto w-full min-w-0 max-w-xl">
         <button onClick={onBack} className="mb-6 inline-flex items-center gap-2 text-sm text-[#977781]">
           <ArrowLeft size={17} /> Retour aux jeux
         </button>
 
-        <section className="rounded-3xl border border-[#f0dfe3] bg-white p-4 shadow-sm sm:p-6">
-          <p className="text-xs tracking-widest text-[#ad7187]">OYCEA · DUEL EN LIGNE</p>
+<section className="w-full min-w-0 overflow-hidden rounded-3xl border border-[#f0dfe3] bg-white p-3 shadow-sm sm:p-6">          <p className="text-xs tracking-widest text-[#ad7187]">OYCEA · DUEL EN LIGNE</p>
           <h1 className="mt-2 text-3xl font-medium">Jeu de dames</h1>
 
           {online.error && (
@@ -200,12 +199,19 @@ export default function CheckersGame({
             <>
               <div className="mt-5 rounded-2xl bg-[#fff9f7] p-4">
                 <p className="text-xs text-[#907b82]">CODE DE LA SALLE</p>
-                <div className="mt-1 flex items-center justify-between gap-3">
-                  <span className="text-2xl font-semibold tracking-[0.2em]">{game.room_code}</span>
-                  <button onClick={() => void copyCode()} className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm text-[#ad7187]">
-                    <Copy size={15} /> {copied ? "Copié" : "Copier"}
-                  </button>
-                </div>
+                <div className="mt-1 flex min-w-0 flex-wrap items-center justify-between gap-2">
+  <span className="min-w-0 break-all text-xl font-semibold tracking-[0.15em] sm:text-2xl">
+    {game.room_code}
+  </span>
+
+  <button
+    onClick={() => void copyCode()}
+    className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full bg-white px-3 py-2 text-sm text-[#ad7187]"
+  >
+    <Copy size={15} />
+    {copied ? "Copié" : "Copier"}
+  </button>
+</div>
                 <p className="mt-2 text-sm text-[#907b82]">
                   {game.status === "waiting"
                     ? "En attente du deuxième joueur…"
@@ -222,7 +228,7 @@ export default function CheckersGame({
                 </p>
               </div>
 
-              <div className="mt-5 grid grid-cols-8 overflow-hidden rounded-xl border-4 border-[#49353d]">
+              <div className="mx-auto mt-5 grid w-full min-w-0 grid-cols-8 overflow-hidden rounded-lg border-2 border-[#49353d] sm:rounded-xl sm:border-4">
                 {board.map((line, row) =>
                   line.map((piece, col) => {
                     const dark = (row + col) % 2 === 1;
@@ -234,12 +240,12 @@ export default function CheckersGame({
                         onClick={() => void play(row, col)}
                         disabled={game.status !== "playing" || online.player !== state?.turn || online.busy}
                         aria-label={`Case ${row + 1}, ${col + 1}`}
-                        className={`flex aspect-square items-center justify-center ${
+                        className={`flex aspect-square min-w-0 touch-manipulation items-center justify-center ${
                           dark ? "bg-[#80616d]" : "bg-[#f8e9ed]"
                         } ${isSelected ? "ring-4 ring-inset ring-amber-300" : ""}`}
                       >
                         {piece && (
-                          <span className={`flex h-[72%] w-[72%] items-center justify-center rounded-full border-2 shadow-sm ${
+                          <span className={`flex h-[68%] w-[68%] shrink-0 items-center justify-center rounded-full border-2 shadow-sm ${
                             piece.player === 1 ? "border-white bg-[#d58ba2]" : "border-[#d7c2cb] bg-[#49353d]"
                           }`}>
                             {piece.king && <span className="text-sm font-bold text-white">D</span>}
