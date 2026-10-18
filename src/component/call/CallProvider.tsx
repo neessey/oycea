@@ -35,13 +35,7 @@ type Signal = {
   mediaType?: CallMedia;
 };
 
-
-type CallStatus =
-  | "idle"
-  | "outgoing"
-  | "incoming"
-  | "connected";
-
+type CallStatus = "idle" | "outgoing" | "incoming" | "connected";
 
 type CallContextType = {
   status: CallStatus;
@@ -49,12 +43,10 @@ type CallContextType = {
   rejectCall: () => Promise<void>;
   hangUp: () => Promise<void>;
   toggleMicrophone: () => void;
-  
-startCall: (mediaType?: CallMedia) => Promise<void>;
-toggleCamera: () => void;
-cameraEnabled: boolean;
-mediaType: CallMedia;
-
+  startCall: (mediaType?: CallMedia) => Promise<void>;
+  toggleCamera: () => void;
+  cameraEnabled: boolean;
+  mediaType: CallMedia;
   muted: boolean;
   duration: number;
   error: string;
@@ -72,11 +64,7 @@ export function useCall() {
   return context;
 }
 
-export default function CallProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export default function CallProvider({ children }: { children: ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
 
   const [userId, setUserId] = useState("");
@@ -87,12 +75,12 @@ export default function CallProvider({
   const [error, setError] = useState("");
   const [incomingCaller, setIncomingCaller] = useState("");
 
-const [mediaType, setMediaType] = useState<CallMedia>("audio");
-const [cameraEnabled, setCameraEnabled] = useState(false);
+  const [mediaType, setMediaType] = useState<CallMedia>("audio");
+  const [cameraEnabled, setCameraEnabled] = useState(false);
 
-const localVideoRef = useRef<HTMLVideoElement | null>(null);
-const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
-const remoteStreamRef = useRef<MediaStream | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
 
   const channelRef = useRef<any>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -104,6 +92,8 @@ const remoteStreamRef = useRef<MediaStream | null>(null);
   const userIdRef = useRef("");
   const mountedRef = useRef(true);
   const durationRef = useRef(0);
+  // Anti-rebond : timestamp du dernier raccrochage (local ou distant)
+  const lastHangupRef = useRef(0);
 
   const updateStatus = useCallback((next: CallStatus) => {
     statusRef.current = next;
@@ -133,52 +123,52 @@ const remoteStreamRef = useRef<MediaStream | null>(null);
       mountedRef.current = false;
     };
   }, [supabase]);
-const sendSignal = useCallback(
-  async (event: string, payload: Record<string, unknown> = {}) => {
-    const channel = channelRef.current;
-    const currentUserId = userIdRef.current;
 
-    if (!currentUserId) {
-      throw new Error(
-        "Utilisateur non identifié. Reconnecte-toi à Oycea."
-      );
-    }
+  const sendSignal = useCallback(
+    async (event: string, payload: Record<string, unknown> = {}) => {
+      const channel = channelRef.current;
+      const currentUserId = userIdRef.current;
 
-    if (!channel) {
-      throw new Error(
-        "Le canal Supabase est absent. Recharge la page."
-      );
-    }
+      if (!currentUserId) {
+        throw new Error(
+          "Utilisateur non identifié. Reconnecte-toi à Oycea."
+        );
+      }
 
-    const result = await channel.send({
-      type: "broadcast",
-      event,
-      payload: {
-        ...payload,
-        from: currentUserId,
-      },
-    });
+      if (!channel) {
+        throw new Error("Le canal Supabase est absent. Recharge la page.");
+      }
 
-    if (result !== "ok") {
-      console.error("[Oycea] Échec du signal Realtime :", {
+      const result = await channel.send({
+        type: "broadcast",
         event,
-        result,
+        payload: {
+          ...payload,
+          from: currentUserId,
+        },
       });
 
-      throw new Error(
-        `Échec de l'envoi du signal (${String(result)}). Vérifie les autorisations Realtime.`
-      );
-    }
-  },
-  []
-);
-const toggleCamera = useCallback(() => {
-  const track = streamRef.current?.getVideoTracks()[0];
-  if (!track) return;
+      if (result !== "ok") {
+        console.error("[Oycea] Échec du signal Realtime :", {
+          event,
+          result,
+        });
 
-  track.enabled = !track.enabled;
-  setCameraEnabled(track.enabled);
-}, []);
+        throw new Error(
+          `Échec de l'envoi du signal (${String(result)}). Vérifie les autorisations Realtime.`
+        );
+      }
+    },
+    []
+  );
+
+  const toggleCamera = useCallback(() => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+
+    track.enabled = !track.enabled;
+    setCameraEnabled(track.enabled);
+  }, []);
 
   const flushCandidates = useCallback(async () => {
     const pc = pcRef.current;
@@ -207,28 +197,29 @@ const toggleCamera = useCallback(() => {
 
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
-remoteStreamRef.current = null;
+    remoteStreamRef.current = null;
 
-if (localVideoRef.current) {
-  localVideoRef.current.srcObject = null;
-}
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null;
+    }
 
-if (remoteVideoRef.current) {
-  remoteVideoRef.current.srcObject = null;
-}
-
-setCameraEnabled(false);
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
 
     if (audioRef.current) {
       audioRef.current.srcObject = null;
     }
 
+    setCameraEnabled(false);
+    // Réinitialisation complète de l'état distant
     incomingOfferRef.current = null;
     pendingCandidatesRef.current = [];
     durationRef.current = 0;
     setDuration(0);
     setMuted(false);
     setIncomingCaller("");
+    setMediaType("audio");
   }, []);
 
   const createPeerConnection = useCallback(() => {
@@ -251,46 +242,38 @@ setCameraEnabled(false);
       });
     };
 
- 
-pc.ontrack = (event) => {
-  let remoteStream = event.streams[0];
+    pc.ontrack = (event) => {
+      let remoteStream = event.streams[0];
 
-  if (!remoteStream) {
-    remoteStream = remoteStreamRef.current ?? new MediaStream();
-    remoteStreamRef.current = remoteStream;
+      if (!remoteStream) {
+        remoteStream = remoteStreamRef.current ?? new MediaStream();
+        remoteStreamRef.current = remoteStream;
 
-    if (
-      !remoteStream.getTracks().some(
-        (track) => track.id === event.track.id
-      )
-    ) {
-      remoteStream.addTrack(event.track);
-    }
-  } else {
-    remoteStreamRef.current = remoteStream;
-  }
+        if (
+          !remoteStream.getTracks().some(
+            (track) => track.id === event.track.id
+          )
+        ) {
+          remoteStream.addTrack(event.track);
+        }
+      } else {
+        remoteStreamRef.current = remoteStream;
+      }
 
-  if (audioRef.current) {
-    audioRef.current.srcObject = remoteStream;
-    void audioRef.current.play().catch((err) => {
-      console.warn("[Oycea] Lecture audio distante impossible :", err);
-    });
-  }
+      if (audioRef.current) {
+        audioRef.current.srcObject = remoteStream;
+        void audioRef.current.play().catch((err) => {
+          console.warn("[Oycea] Lecture audio distante impossible :", err);
+        });
+      }
 
-  if (remoteVideoRef.current) {
-    remoteVideoRef.current.srcObject = remoteStream;
-    void remoteVideoRef.current.play().catch((err) => {
-      console.warn("[Oycea] Lecture vidéo distante impossible :", err);
-    });
-  }
-
-  console.log(
-    "[Oycea] Piste distante reçue :",
-    event.track.kind,
-    event.track.readyState
-  );
-};
-
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = remoteStream;
+        void remoteVideoRef.current.play().catch((err) => {
+          console.warn("[Oycea] Lecture vidéo distante impossible :", err);
+        });
+      }
+    };
 
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === "connected") {
@@ -304,6 +287,7 @@ pc.ontrack = (event) => {
       ) {
         disposeConnection();
         updateStatus("idle");
+        lastHangupRef.current = Date.now();
 
         if (pc.connectionState === "failed") {
           setError(
@@ -320,97 +304,88 @@ pc.ontrack = (event) => {
     return pc;
   }, [sendSignal, updateStatus, disposeConnection]);
 
-
-const getLocalStream = useCallback(async (withVideo = false) => {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    throw new Error(
-      "Le micro et la caméra nécessitent HTTPS ou localhost."
-    );
-  }
-
-  
-
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    },
-    video: withVideo
-      ? {
-          facingMode: "user",
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          frameRate: { ideal: 24, max: 30 },
-        }
-      : false,
-  });
-
-  streamRef.current = stream;
-console.log(
-  "[Oycea] Caméra locale :",
-  stream.getVideoTracks().map((track) => ({
-    label: track.label,
-    enabled: track.enabled,
-    readyState: track.readyState,
-  }))
-);
-
-  if (localVideoRef.current) {
-    localVideoRef.current.srcObject = stream;
-  }
-
-  setCameraEnabled(withVideo);
-  return stream;
-}, []);
-
-
-const startCall = useCallback(async (requestedMedia: CallMedia = "audio") => {
-        if (
-      !channelReady ||
-      statusRef.current !== "idle" ||
-      !userIdRef.current
-    ) {
-      return;
-    }
-
-    setError("");
-
-    try {
-const stream = await getLocalStream(requestedMedia === "video");
-setMediaType(requestedMedia);
-      const pc = createPeerConnection();
-
-      stream.getTracks().forEach((track) => {
-        pc.addTrack(track, stream);
-      });
-
-      updateStatus("outgoing");
-
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-     await sendSignal("call-offer", {
-  description: pc.localDescription?.toJSON(),
-  mediaType: requestedMedia,
-});
-    } catch (callError) {
-      disposeConnection();
-      updateStatus("idle");
-      setError(
-        callError instanceof Error
-          ? callError.message
-          : "Impossible de lancer l'appel."
+  const getLocalStream = useCallback(async (withVideo = false) => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error(
+        "Le micro et la caméra nécessitent HTTPS ou localhost."
       );
     }
-  }, [
-    channelReady,
-    getLocalStream,
-    createPeerConnection,
-    sendSignal,
-    updateStatus,
-    disposeConnection,
-  ]);
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      video: withVideo
+        ? {
+            facingMode: "user",
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 24, max: 30 },
+          }
+        : false,
+    });
+
+    streamRef.current = stream;
+
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = stream;
+    }
+
+    setCameraEnabled(withVideo);
+    return stream;
+  }, []);
+
+  const startCall = useCallback(
+    async (requestedMedia: CallMedia = "audio") => {
+      if (
+        !channelReady ||
+        statusRef.current !== "idle" ||
+        !userIdRef.current
+      ) {
+        return;
+      }
+
+      setError("");
+
+      try {
+        const stream = await getLocalStream(requestedMedia === "video");
+        setMediaType(requestedMedia);
+        const pc = createPeerConnection();
+
+        stream.getTracks().forEach((track) => {
+          pc.addTrack(track, stream);
+        });
+
+        updateStatus("outgoing");
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        await sendSignal("call-offer", {
+          description: pc.localDescription?.toJSON(),
+          mediaType: requestedMedia,
+        });
+      } catch (callError) {
+        disposeConnection();
+        updateStatus("idle");
+        setError(
+          callError instanceof Error
+            ? callError.message
+            : "Impossible de lancer l'appel."
+        );
+      }
+    },
+    [
+      channelReady,
+      getLocalStream,
+      createPeerConnection,
+      sendSignal,
+      updateStatus,
+      disposeConnection,
+    ]
+  );
 
   const acceptCall = useCallback(async () => {
     const offer = incomingOfferRef.current;
@@ -420,9 +395,11 @@ setMediaType(requestedMedia);
     setError("");
 
     try {
-const requestedMedia = offer.mediaType === "video" ? "video" : "audio";
-const stream = await getLocalStream(requestedMedia === "video");
-setMediaType(requestedMedia);      const pc = createPeerConnection();
+      const requestedMedia =
+        offer.mediaType === "video" ? "video" : "audio";
+      const stream = await getLocalStream(requestedMedia === "video");
+      setMediaType(requestedMedia);
+      const pc = createPeerConnection();
 
       stream.getTracks().forEach((track) => {
         pc.addTrack(track, stream);
@@ -445,6 +422,7 @@ setMediaType(requestedMedia);      const pc = createPeerConnection();
     } catch (callError) {
       disposeConnection();
       updateStatus("idle");
+      lastHangupRef.current = Date.now();
       setError(
         callError instanceof Error
           ? callError.message
@@ -461,36 +439,39 @@ setMediaType(requestedMedia);      const pc = createPeerConnection();
   ]);
 
   const rejectCall = useCallback(async () => {
+    // Nettoyage local immédiat pour que l'interface se ferme tout de suite
+    const caller = incomingCaller;
+    disposeConnection();
+    updateStatus("idle");
+    lastHangupRef.current = Date.now();
+    setError("");
+
+    // Ensuite tenter d'envoyer le signal (sans bloquer)
     try {
-      if (incomingCaller) {
-        await sendSignal("call-reject", {
-          target: incomingCaller,
-        });
+      if (caller) {
+        await sendSignal("call-reject", { target: caller });
       }
     } catch (signalError) {
       console.error(signalError);
     }
-
-    disposeConnection();
-    updateStatus("idle");
-    setError("");
-  }, [
-    incomingCaller,
-    sendSignal,
-    disposeConnection,
-    updateStatus,
-  ]);
+  }, [incomingCaller, sendSignal, disposeConnection, updateStatus]);
 
   const hangUp = useCallback(async () => {
+    // Nettoyage local immédiat (interface fermée tout de suite)
+    disposeConnection();
+    updateStatus("idle");
+    lastHangupRef.current = Date.now();
+    setError("");
+
+    // Ensuite tenter d'envoyer le signal (sans bloquer)
     try {
       await sendSignal("call-hangup");
     } catch (signalError) {
-      console.error(signalError);
+      console.error(
+        "Impossible d'envoyer le signal de raccrochage:",
+        signalError
+      );
     }
-
-    disposeConnection();
-    updateStatus("idle");
-    setError("");
   }, [sendSignal, disposeConnection, updateStatus]);
 
   const toggleMicrophone = useCallback(() => {
@@ -533,11 +514,16 @@ setMediaType(requestedMedia);      const pc = createPeerConnection();
           return;
         }
 
+        // Ignore les offres qui arrivent juste après un raccrochage
+        if (Date.now() - lastHangupRef.current < 2000) {
+          return;
+        }
+
         incomingOfferRef.current = signal;
-setMediaType(signal.mediaType === "video" ? "video" : "audio");
-setIncomingCaller(signal.from);
-setError("");
-updateStatus("incoming");
+        setMediaType(signal.mediaType === "video" ? "video" : "audio");
+        setIncomingCaller(signal.from);
+        setError("");
+        updateStatus("incoming");
       })
       .on("broadcast", { event: "call-answer" }, async ({ payload }) => {
         const signal = payload as Signal;
@@ -585,13 +571,15 @@ updateStatus("incoming");
       })
       .on("broadcast", { event: "call-reject" }, ({ payload }) => {
         if (
-          (payload as Signal & { target?: string }).target !== userIdRef.current
+          (payload as Signal & { target?: string }).target !==
+          userIdRef.current
         ) {
           return;
         }
 
         disposeConnection();
         updateStatus("idle");
+        lastHangupRef.current = Date.now();
         setError("Ton partenaire a refusé l'appel.");
       })
       .on("broadcast", { event: "call-hangup" }, ({ payload }) => {
@@ -599,39 +587,38 @@ updateStatus("incoming");
 
         if (signal.from === userIdRef.current) return;
 
+        // Nettoyage complet côté distant
         disposeConnection();
         updateStatus("idle");
-        setError("L'appel a été terminé.");
+        lastHangupRef.current = Date.now();
+        setError("");
       })
       .subscribe((subscriptionStatus, err) => {
-  if (!active) return;
+        if (!active) return;
 
-  console.log("[Oycea] Statut Realtime :", subscriptionStatus);
+        if (err) {
+          console.error("[Oycea] Erreur Realtime :", err);
+        }
 
-  if (err) {
-    console.error("[Oycea] Erreur Realtime :", err);
-  }
+        if (subscriptionStatus === "SUBSCRIBED") {
+          setChannelReady(true);
+          setError("");
+          return;
+        }
 
-  if (subscriptionStatus === "SUBSCRIBED") {
-    setChannelReady(true);
-    setError("");
-    console.log("[Oycea] Canal d'appel connecté.");
-    return;
-  }
+        setChannelReady(false);
 
-  setChannelReady(false);
-
-  if (
-    subscriptionStatus === "CHANNEL_ERROR" ||
-    subscriptionStatus === "TIMED_OUT"
-  ) {
-    setError(
-      "Connexion aux appels impossible. Vérifie la configuration Realtime de Supabase."
-    );
-  } else if (subscriptionStatus === "CLOSED") {
-    setError("La connexion aux appels a été fermée.");
-  }
-});
+        if (
+          subscriptionStatus === "CHANNEL_ERROR" ||
+          subscriptionStatus === "TIMED_OUT"
+        ) {
+          setError(
+            "Connexion aux appels impossible. Vérifie la configuration Realtime de Supabase."
+          );
+        } else if (subscriptionStatus === "CLOSED") {
+          setError("La connexion aux appels a été fermée.");
+        }
+      });
 
     return () => {
       active = false;
@@ -662,84 +649,83 @@ updateStatus("incoming");
       disposeConnection();
     };
   }, [disposeConnection]);
-  
-useEffect(() => {
-  if (status === "idle" || mediaType !== "video") return;
 
-  const localVideo = localVideoRef.current;
-  const localStream = streamRef.current;
+  useEffect(() => {
+    if (status === "idle" || mediaType !== "video") return;
 
-  if (localVideo && localStream) {
-    localVideo.srcObject = localStream;
+    const localVideo = localVideoRef.current;
+    const localStream = streamRef.current;
 
-    void localVideo.play().catch((err) => {
-      console.warn("[Oycea] Lecture vidéo locale impossible :", err);
-    });
-  }
+    if (localVideo && localStream) {
+      localVideo.srcObject = localStream;
 
-  const remoteVideo = remoteVideoRef.current;
-  const remoteStream = remoteStreamRef.current;
+      void localVideo.play().catch((err) => {
+        console.warn("[Oycea] Lecture vidéo locale impossible :", err);
+      });
+    }
 
-  if (remoteVideo && remoteStream) {
-    remoteVideo.srcObject = remoteStream;
+    const remoteVideo = remoteVideoRef.current;
+    const remoteStream = remoteStreamRef.current;
 
-    void remoteVideo.play().catch((err) => {
-      console.warn("[Oycea] Lecture vidéo distante impossible :", err);
-    });
-  }
-}, [status, mediaType]);
+    if (remoteVideo && remoteStream) {
+      remoteVideo.srcObject = remoteStream;
 
+      void remoteVideo.play().catch((err) => {
+        console.warn("[Oycea] Lecture vidéo distante impossible :", err);
+      });
+    }
+  }, [status, mediaType]);
 
- const value: CallContextType = {
-  status,
-  startCall,
-  acceptCall,
-  rejectCall,
-  hangUp,
-  toggleMicrophone,
-  toggleCamera,
-  cameraEnabled,
-  mediaType,
-  muted,
-  duration,
-  error,
-};
+  const value: CallContextType = {
+    status,
+    startCall,
+    acceptCall,
+    rejectCall,
+    hangUp,
+    toggleMicrophone,
+    toggleCamera,
+    cameraEnabled,
+    mediaType,
+    muted,
+    duration,
+    error,
+  };
 
   return (
     <CallContext.Provider value={value}>
       {children}
 
-<audio ref={audioRef} autoPlay playsInline />
+      <audio ref={audioRef} autoPlay playsInline />
 
-{status !== "idle" && (
-      <div className="fixed bottom-24 left-3 right-3 z-[99] grid grid-cols-2 gap-2 overflow-hidden rounded-2xl border border-[#eedde1] bg-[#49353d] p-2 shadow-2xl">
-    <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-black">
-      <video
-        ref={remoteVideoRef}
-        autoPlay
-        playsInline
-        muted
-        className="h-full w-full object-cover"
-      />
-      <span className="absolute bottom-2 left-2 rounded-full bg-black/50 px-2 py-1 text-xs text-white">
-        Partenaire
-      </span>
-    </div>
+      {status !== "idle" && mediaType === "video" && (
+        <div className="fixed bottom-24 left-3 right-3 z-[99] grid grid-cols-2 gap-2 overflow-hidden rounded-2xl border border-[#eedde1] bg-[#49353d] p-2 shadow-2xl">
+          <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-black">
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="h-full w-full object-cover"
+            />
+            <span className="absolute bottom-2 left-2 rounded-full bg-black/50 px-2 py-1 text-xs text-white">
+              Partenaire
+            </span>
+          </div>
 
-    <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-black">
-      <video
-        ref={localVideoRef}
-        autoPlay
-        playsInline
-        muted
-        className="h-full w-full object-cover"
-      />
-      <span className="absolute bottom-2 left-2 rounded-full bg-black/50 px-2 py-1 text-xs text-white">
-        Moi
-      </span>
-    </div>
-  </div>
-)}
+          <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-black">
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="h-full w-full object-cover"
+            />
+            <span className="absolute bottom-2 left-2 rounded-full bg-black/50 px-2 py-1 text-xs text-white">
+              Moi
+            </span>
+          </div>
+        </div>
+      )}
 
       <CallOverlay channelReady={channelReady} />
     </CallContext.Provider>
@@ -754,7 +740,6 @@ function formatDuration(seconds: number) {
     remaining
   ).padStart(2, "0")}`;
 }
-
 
 function CallOverlay({ channelReady }: { channelReady: boolean }) {
   const {
@@ -774,12 +759,18 @@ function CallOverlay({ channelReady }: { channelReady: boolean }) {
 
   const [expanded, setExpanded] = useState(false);
 
-  // Fermer les commandes quand l'appel se termine.
+  // Fermer les commandes quand l'appel se termine ou qu'une erreur apparaît.
   useEffect(() => {
     if (status === "idle") {
       setExpanded(false);
     }
   }, [status]);
+
+  useEffect(() => {
+    if (error) {
+      setExpanded(false);
+    }
+  }, [error]);
 
   // Bouton flottant lorsque l'appel est en cours.
   if (status !== "idle" && status !== "incoming" && !expanded) {
@@ -980,4 +971,3 @@ function CallOverlay({ channelReady }: { channelReady: boolean }) {
     </div>
   );
 }
-

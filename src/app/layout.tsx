@@ -1,14 +1,14 @@
 
-
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import CallProvider from "@/component/call/CallProvider";
 
 export const metadata: Metadata = {
-  title: "Oycea — Notre petit monde à deux",
+  title: "Oycea - Notre petit monde à deux",
   description:
     "Un espace privé pour jouer, regarder des films et se retrouver à distance.",
   applicationName: "Oycea",
+  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     title: "Oycea",

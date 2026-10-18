@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable react/jsx-no-undef */
 
 "use client";
 
@@ -17,9 +19,11 @@ import {
   MessageCircleHeart,
   MoonStar,
   Music2,
+  Settings,
   Sparkles,
   Stars,
 } from "lucide-react";
+
 
 const activities = [
   {
@@ -42,10 +46,29 @@ const activities = [
   },
 ];
 
+const SETTING_KEY = "oycea_mood_widget_enabled";
+
 export default function Home() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [enabled, setEnabled] = useState(true);
   const [checkingAuth, setCheckingAuth] = useState(true);
+
+   useEffect(() => {
+    setEnabled(localStorage.getItem(SETTING_KEY) !== "false");
+
+    const syncSettings = () => {
+      setEnabled(localStorage.getItem(SETTING_KEY) !== "false");
+    };
+
+    window.addEventListener("storage", syncSettings);
+    window.addEventListener("oycea-settings-changed", syncSettings);
+
+    return () => {
+      window.removeEventListener("storage", syncSettings);
+      window.removeEventListener("oycea-settings-changed", syncSettings);
+    };
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
@@ -166,7 +189,6 @@ export default function Home() {
         </div>
       </section>
 
-      
 
       <section id="activities" className="activities-section">
         <div className="section-heading">
@@ -205,6 +227,8 @@ export default function Home() {
           })}
         </div>
 
+
+
         <div className="coming-soon">
           <div className="coming-icon"><Music2 size={20} /></div>
           <div>
@@ -217,7 +241,7 @@ export default function Home() {
 
       <footer className="site-footer">
         <Link href="/" className="footer-brand">oycea<span>.</span></Link>
-        <span className="footer-private"><LockKeyhole size={12} /> Notre cocon privé</span>
+        <span className="footer-private"><Settings size={12} /> Paramètres</span>
       </footer>
     </main>
   );

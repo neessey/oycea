@@ -524,7 +524,7 @@ async function joinGame() {
                 <div className="mb-5 flex items-center justify-between rounded-2xl bg-[#fff9f7] px-4 py-3">
                   <span className="text-sm text-[#8e737d]">{statusText}</span>
                   <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[#b8768d]">
-                    {mySymbol ?? "—"}
+                    {mySymbol ?? "-"}
                   </span>
                 </div>
 
