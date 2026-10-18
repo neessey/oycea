@@ -18,7 +18,7 @@ appleWebApp: {
     {
       url: "/splash/oycea-iphone.png",
       media:
-        "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)",
+  "(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)",
     },
   ],
 },
@@ -38,6 +38,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
+       <head>
+        <meta
+          name="apple-mobile-web-app-capable"
+          content="yes"
+        />
+      </head>
       <body>
         <CallProvider>{children}</CallProvider>
       </body>
