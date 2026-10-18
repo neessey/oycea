@@ -9,15 +9,24 @@ export const metadata: Metadata = {
     "Un espace privé pour jouer, regarder des films et se retrouver à distance.",
   applicationName: "Oycea",
   manifest: "/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    title: "Oycea",
-    statusBarStyle: "default",
-  },
+ 
+appleWebApp: {
+  capable: true,
+  title: "Oycea",
+  statusBarStyle: "default",
+  startupImage: [
+    {
+      url: "/splash/oycea-iphone.png",
+      media:
+        "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)",
+    },
+  ],
+},
+
 };
 
 export const viewport: Viewport = {
-  themeColor: "#fff9f5",
+  themeColor: "##9b777f",
   width: "device-width",
   initialScale: 1,
 };
