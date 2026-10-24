@@ -392,37 +392,85 @@ function PhotoboothContent() {
           peer.addTrack(track, stream);
         });
 
-        peer.ontrack = (event) => {
-          event.streams[0]?.getTracks().forEach((track) => {
-            if (
-              !remoteStream.getTracks().some(
-                (existing) => existing.id === track.id
-              )
-            ) {
-              remoteStream.addTrack(track);
-            }
-          });
+        
+peer.ontrack = async (event) => {
+  // Récupérer le flux vidéo reçu du partenaire.
+  const incomingStream = event.streams[0];
 
-          setRemoteReady(true);
-          setStatus("Vous êtes connectés. Préparez vos poses.");
-        };
+  if (incomingStream) {
+    incomingStream.getTracks().forEach((track) => {
+      const alreadyAdded = remoteStream
+        .getTracks()
+        .some((existing) => existing.id === track.id);
+
+      if (!alreadyAdded) {
+        remoteStream.addTrack(track);
+      }
+    });
+  } else {
+    // Certains navigateurs peuvent envoyer une piste sans flux associé.
+    const alreadyAdded = remoteStream
+      .getTracks()
+      .some((existing) => existing.id === event.track.id);
+
+    if (!alreadyAdded) {
+      remoteStream.addTrack(event.track);
+    }
+  }
+
+  // Ne marquer la caméra distante comme prête que si une vidéo est reçue.
+  if (
+    event.track.kind !== "video" ||
+    remoteStream.getVideoTracks().length === 0
+  ) {
+    return;
+  }
+
+  // Le flux doit être relié à l'élément vidéo réellement affiché.
+  remoteStreamRef.current = remoteStream;
+
+  const video = remoteVideoRef.current;
+
+  if (video) {
+    video.srcObject = remoteStream;
+    video.autoplay = true;
+    video.playsInline = true;
+    video.muted = true;
+
+    try {
+      await video.play();
+      setRemoteReady(true);
+      setStatus("Vous êtes connectés. Préparez vos poses.");
+    } catch (error) {
+      console.error(
+        "[Oycea Photobooth] Lecture de la caméra distante impossible :",
+        error
+      );
+
+      setRemoteReady(false);
+      setError(
+        "La caméra de ton partenaire est reçue, mais sa vidéo ne peut pas encore être affichée. Réessaie."
+      );
+    }
+  }
+};
+
 
         peer.onconnectionstatechange = () => {
           const state = peer.connectionState;
 
-          if (state === "connected") {
-            setRemoteReady(true);
-            setStatus("Votre cabine est prête.");
-          } else if (state === "failed") {
-            setRemoteReady(false);
-            setStatus("Connexion directe impossible.");
-            setError(
-              "Le réseau bloque peut-être WebRTC. Une configuration TURN peut être nécessaire."
-            );
-          } else if (state === "disconnected") {
-            setRemoteReady(false);
-            setStatus("Connexion interrompue. Tentative de reconnexion...");
-          }
+        if (state === "connected") {
+  setStatus("Connexion établie. Activation des caméras...");
+} else if (state === "failed") {
+  setRemoteReady(false);
+  setStatus("Connexion directe impossible.");
+  setError(
+    "Le réseau bloque peut-être WebRTC. Une configuration TURN peut être nécessaire."
+  );
+} else if (state === "disconnected") {
+  setRemoteReady(false);
+  setStatus("Connexion interrompue. Tentative de reconnexion...");
+}
         };
 
         peer.onicecandidate = (event) => {
