@@ -206,6 +206,79 @@ export function useOyceaOnlineGame(gameType: GameType) {
     [game, busy, supabase, refresh]
   );
 
+    const setFindNumberSecret = useCallback(
+    async (secret: string) => {
+      if (!game || busy || gameType !== "findnumber") return false;
+
+      setBusy(true);
+      setError("");
+
+      try {
+        const { error } = await supabase.rpc(
+          "oycea_findnumber_set_secret",
+          {
+            p_session_id: game.id,
+            p_secret: secret,
+          }
+        );
+
+        if (error) throw error;
+
+        await refresh(game.id);
+        return true;
+      } catch (e) {
+        setError(
+          e instanceof Error ? e.message : "Impossible d'enregistrer le nombre secret."
+        );
+        return false;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [game, busy, gameType, supabase, refresh]
+  );
+
+  const submitFindNumberGuess = useCallback(
+    async (guess: string) => {
+      if (!game || busy || gameType !== "findnumber") return false;
+
+      setBusy(true);
+      setError("");
+
+      try {
+        const { data, error } = await supabase.rpc(
+          "oycea_findnumber_guess",
+          {
+            p_session_id: game.id,
+            p_guess: guess,
+          }
+        );
+
+        if (error) throw error;
+
+        const result = data as {
+          game?: OnlineGame;
+        } | null;
+
+        if (!result?.game?.id) {
+          throw new Error("La proposition n'a pas été enregistrée.");
+        }
+
+        setGame(result.game);
+        return true;
+      } catch (e) {
+        setError(
+          e instanceof Error ? e.message : "Impossible d'envoyer la proposition."
+        );
+        await refresh(game.id);
+        return false;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [game, busy, gameType, supabase, refresh]
+  );
+
   const player =
     game?.host_id === userId
       ? 1
@@ -213,6 +286,7 @@ export function useOyceaOnlineGame(gameType: GameType) {
         ? 2
         : null;
 
+ 
   return {
     userId,
     game,
@@ -226,6 +300,10 @@ export function useOyceaOnlineGame(gameType: GameType) {
     createGame,
     joinGame,
     updateGame,
+    setFindNumberSecret,
+    submitFindNumberGuess,
   };
 }
+
+
 

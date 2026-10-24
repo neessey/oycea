@@ -125,49 +125,77 @@ function PhotoboothContent() {
     []
   );
 
+ 
   const capturePhoto = useCallback(
-    (index: number) => {
+    async (index: number) => {
       const video = localVideoRef.current;
+      const stream = localStreamRef.current;
 
-      if (
-        !video ||
-        video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
-        video.videoWidth === 0
-      ) {
-        setError("La caméra n'est pas encore prête. Réessaie dans un instant.");
+      if (!video || !stream || stream.getVideoTracks().length === 0) {
+        setError("La caméra n'est pas active. Relance l'accès à la caméra.");
         return;
       }
 
-      const canvas = document.createElement("canvas");
-      const width = 640;
-      const height = Math.round(
-        (video.videoHeight / video.videoWidth) * width
-      );
+      try {
+        // Relancer la lecture si nécessaire.
+        if (video.paused) {
+          await video.play();
+        }
 
-      canvas.width = width;
-      canvas.height = height;
+        // Attendre que la vidéo fournisse une image exploitable.
+        let attempts = 0;
 
-      const context = canvas.getContext("2d");
-      if (!context) return;
+        while (
+          (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+            video.videoWidth === 0 ||
+            video.videoHeight === 0) &&
+          attempts < 30
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          attempts++;
+        }
 
-      context.save();
+        if (
+          video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+          video.videoWidth === 0 ||
+          video.videoHeight === 0
+        ) {
+          setError(
+            "La vidéo ne fournit pas encore d'image. Vérifie l'aperçu de ta caméra."
+          );
+          return;
+        }
 
-      if (facingMode === "user") {
-        context.translate(width, 0);
-        context.scale(-1, 1);
-      }
+        const canvas = document.createElement("canvas");
+        const width = 640;
+        const height = Math.round(
+          (video.videoHeight / video.videoWidth) * width
+        );
 
-      context.drawImage(video, 0, 0, width, height);
-      context.restore();
+        canvas.width = width;
+        canvas.height = height;
 
-      const image = canvas.toDataURL("image/jpeg", 0.65);
+        const context = canvas.getContext("2d");
 
-      updateShots(index, "local", image);
+        if (!context) {
+          setError("Impossible de préparer la photo.");
+          return;
+        }
 
-      const dataChannel = dataChannelRef.current;
+        if (facingMode === "user") {
+          context.translate(width, 0);
+          context.scale(-1, 1);
+        }
 
-      if (dataChannel?.readyState === "open") {
-        try {
+        context.drawImage(video, 0, 0, width, height);
+
+        const image = canvas.toDataURL("image/jpeg", 0.65);
+
+        updateShots(index, "local", image);
+
+        const dataChannel = dataChannelRef.current;
+
+        if (dataChannel?.readyState === "open") {
           dataChannel.send(
             JSON.stringify({
               type: "photo",
@@ -175,15 +203,19 @@ function PhotoboothContent() {
               image,
             })
           );
-        } catch {
+        } else {
           setError(
-            "La photo a été prise, mais son partage a échoué. Vérifiez la connexion."
+            "Photo prise, mais le partage avec ton partenaire n'est pas disponible."
           );
         }
+      } catch (captureError) {
+        console.error("[Oycea Photobooth] Capture :", captureError);
+        setError("Impossible de prendre la photo. Réessaie.");
       }
     },
     [facingMode, updateShots]
   );
+
 
   const scheduleCapture = useCallback(
     (at: number, index: number) => {
@@ -218,12 +250,13 @@ function PhotoboothContent() {
         }
 
         setCountdown(null);
-        capturePhoto(index);
+        void capturePhoto(index);
       }, Math.max(0, at - Date.now()));
     },
     [capturePhoto]
   );
 
+ 
   const startCamera = useCallback(
     async (mode: "user" | "environment") => {
       try {
@@ -233,8 +266,9 @@ function PhotoboothContent() {
           audio: false,
           video: {
             facingMode: { ideal: mode },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 24, max: 30 },
           },
         });
 
@@ -244,8 +278,37 @@ function PhotoboothContent() {
 
         localStreamRef.current = stream;
 
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
+        const video = localVideoRef.current;
+
+        if (video) {
+          video.srcObject = stream;
+          video.muted = true;
+          video.playsInline = true;
+
+          try {
+            await video.play();
+          } catch (playError) {
+            console.warn(
+              "[Oycea Photobooth] Lecture vidéo en attente :",
+              playError
+            );
+          }
+
+          // Attendre que les dimensions vidéo soient disponibles.
+          if (video.videoWidth === 0 || video.videoHeight === 0) {
+            await new Promise<void>((resolve) => {
+              const timeout = window.setTimeout(resolve, 3000);
+
+              video.addEventListener(
+                "loadedmetadata",
+                () => {
+                  window.clearTimeout(timeout);
+                  resolve();
+                },
+                { once: true }
+              );
+            });
+          }
         }
 
         setFacingMode(mode);
@@ -253,16 +316,21 @@ function PhotoboothContent() {
         setCameraError(false);
 
         return stream;
-      } catch {
+      } catch (cameraError) {
+        console.error("[Oycea Photobooth] Caméra :", cameraError);
+
         setCameraError(true);
+        setLocalStreamReady(false);
         setError(
-          "Impossible d'accéder à la caméra. Autorise-la dans les paramètres de ton navigateur."
+          "Impossible d'accéder à la caméra. Vérifie les autorisations de ton navigateur."
         );
+
         return null;
       }
     },
     []
   );
+
 
   const connectRoom = useCallback(
     async (code: string, host: boolean) => {
