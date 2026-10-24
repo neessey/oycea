@@ -48,7 +48,7 @@ export default function LoginPage() {
 
         <div className="mb-8 mt-10 text-center">
           <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-[#fff0f2] text-3xl">
-            <img src="/assets/logo.png" alt="logo" />
+            <img src="/assets/logoo.png" alt="logo" />
           </div>
 
           <p className="mb-3 text-xs font-medium uppercase tracking-[0.25em] text-[#bc8292]">

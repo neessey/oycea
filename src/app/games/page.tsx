@@ -23,6 +23,7 @@ import PuzzleGame from "./PuzzleGame.tsx/page";
 import FourInARowGame from "./FourInARowGame.tsx/page";
 import LinkedAdventureGame from "./LinkedAdventureGame.tsx/page";
 import LudoGame from "./LudoGame.tsx/page";
+import FindNumberGame from "./FindNumberGame.tsx/page";
 
 type Activity =
   | "menu"
@@ -32,6 +33,7 @@ type Activity =
   | "linked"
   | "ludo"
   | "forinarow"
+  | "findnumber"
   | "defis"
 
 type Challenge = {
@@ -494,6 +496,11 @@ if (activity === "ludo") {
 }
 
 
+if (activity === "findnumber") {
+  return <FindNumberGame onBack={() => setActivity("menu")} />;
+}
+
+
 
   const myResponse = responses.find((row) => row.user_id === userId);
   const partnerResponse = responses.find((row) => row.user_id !== userId);
@@ -535,6 +542,16 @@ const games: GameCard[] = [
       "Alignez quatre jetons avant votre partenaire dans ce duel stratégique à deux. Simple à comprendre, difficile à lâcher.",
     icon: <Gamepad2 size={40} />,
   },
+  
+{
+  key: "findnumber",
+  title: "Find the Number",
+  short: "Devine le code secret de ton partenaire.",
+  description:
+    "Choisissez chacun un code secret de quatre chiffres et tentez de découvrir celui de votre partenaire. Des indices vous aideront à trouver les bons chiffres et leur position.",
+  icon: <Gamepad2 size={40} />,
+},
+
     {
     key: "morpion",
     title: "Morpion",

@@ -1,5 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
-/* eslint-disable react/jsx-no-undef */
 
 "use client";
 
@@ -9,21 +7,13 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import {
   ArrowRight,
-  CalendarHeart,
-  Check,
+  Camera,
   Clapperboard,
-  Clock3,
   Gamepad2,
-  Heart,
   LockKeyhole,
-  MessageCircleHeart,
   MoonStar,
-  Music2,
   Settings,
-  Sparkles,
-  Stars,
 } from "lucide-react";
-
 
 const activities = [
   {
@@ -44,31 +34,23 @@ const activities = [
     icon: Clapperboard,
     className: "movie-card",
   },
+  {
+    number: "03",
+    title: "Photo booth à deux",
+    description:
+      "Des poses complices, un compte à rebours et nos souvenirs en photos.",
+    label: "Prendre des photos",
+    href: "/photobooth",
+    icon: Camera,
+    className: "photobooth-card",
+  },
 ];
-
-const SETTING_KEY = "oycea_mood_widget_enabled";
 
 export default function Home() {
   const router = useRouter();
   const [email, setEmail] = useState("");
-  const [enabled, setEnabled] = useState(true);
   const [checkingAuth, setCheckingAuth] = useState(true);
-
-   useEffect(() => {
-    setEnabled(localStorage.getItem(SETTING_KEY) !== "false");
-
-    const syncSettings = () => {
-      setEnabled(localStorage.getItem(SETTING_KEY) !== "false");
-    };
-
-    window.addEventListener("storage", syncSettings);
-    window.addEventListener("oycea-settings-changed", syncSettings);
-
-    return () => {
-      window.removeEventListener("storage", syncSettings);
-      window.removeEventListener("oycea-settings-changed", syncSettings);
-    };
-  }, []);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -96,11 +78,16 @@ export default function Home() {
   }, [router]);
 
   async function handleLogout() {
+    if (loggingOut) return;
+
+    setLoggingOut(true);
+
     const supabase = createClient();
     const { error } = await supabase.auth.signOut();
 
     if (error) {
       console.error("Erreur de déconnexion :", error.message);
+      setLoggingOut(false);
       return;
     }
 
@@ -110,7 +97,7 @@ export default function Home() {
 
   if (checkingAuth) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
+      <main className="flex min-h-screen items-center justify-center">
         <p className="text-sm text-[#9b777f]">
           Préparation de ton petit cocon...
         </p>
@@ -122,30 +109,38 @@ export default function Home() {
     <main className="min-h-screen overflow-hidden">
       <header className="site-header">
         <Link href="/" className="brand" aria-label="Oycea, accueil">
-          
-          <span>oycea<span className="brand-dot">.</span></span>
+          <span>
+            oycea<span className="brand-dot">.</span>
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">
-          <a className="nav-link active" href="#home">Notre cocon</a>
-          <a className="nav-link" href="#activities">Nos rendez-vous</a>
-          <a className="nav-link" href="#little-things">Nos petits moments</a>
+          <a className="nav-link active" href="#home">
+            Notre cocon
+          </a>
+          <a className="nav-link" href="#activities">
+            Nos rendez-vous
+          </a>
+          <a className="nav-link" href="#little-things">
+            Nos petits moments
+          </a>
         </nav>
 
         <div className="flex items-center gap-3">
-  <div className="private-label">
-    <LockKeyhole size={13} />
-    <span>{email}</span>
-  </div>
+          <div className="private-label">
+            <LockKeyhole size={13} />
+            <span>{email}</span>
+          </div>
 
-  <button
-    type="button"
-    onClick={handleLogout}
-    className="nav-link"
-  >
-    Déconnexion
-  </button>
-</div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="nav-link"
+          >
+            {loggingOut ? "Déconnexion..." : "Déconnexion"}
+          </button>
+        </div>
       </header>
 
       <section id="home" className="hero-shell">
@@ -172,28 +167,24 @@ export default function Home() {
               Organiser notre date
               <ArrowRight size={17} />
             </a>
-           
           </div>
-
-          
         </div>
 
-        <div className="hero-art" aria-label="Illustration décorative de notre cocon">
-        
-
-          
-<img src="/assets/hero.png" alt="" />
-
-        
+        <div
+          className="hero-art"
+          aria-label="Illustration décorative de notre cocon"
+        >
+          <img src="/assets/hero.png" alt="" />
         </div>
       </section>
-
 
       <section id="activities" className="activities-section">
         <div className="section-heading">
           <div>
             <span className="section-kicker">ALORS, MON AMOUR…</span>
-            <h2>On fait quoi ce soir ? <span>♡</span></h2>
+            <h2>
+              On fait quoi ce soir ? <span>♡</span>
+            </h2>
             <p>Choisis l’ambiance, je m’occupe du reste.</p>
           </div>
         </div>
@@ -201,46 +192,77 @@ export default function Home() {
         <div className="activity-grid">
           {activities.map((activity) => {
             const Icon = activity.icon;
+
             return (
               <article
                 key={activity.number}
                 className={`activity-card ${activity.className}`}
               >
                 <div className="activity-topline">
-                  <span className="activity-number">{activity.number}</span>
-                  <span className="activity-icon"><Icon size={22} /></span>
+                  <span className="activity-number">
+                    {activity.number}
+                  </span>
+
+                  <span className="activity-icon">
+                    <Icon size={22} />
+                  </span>
                 </div>
+
                 <div className="activity-content">
                   <h3>{activity.title}</h3>
                   <p>{activity.description}</p>
-                  <Link className="activity-link" href={activity.href}>
+
+                  <Link
+                    className="activity-link"
+                    href={activity.href}
+                  >
                     {activity.label}
                     <ArrowRight size={16} />
                   </Link>
                 </div>
+
                 <div className="card-decoration" aria-hidden="true">
-                  {activity.number === "01" ? <Gamepad2 size={92} /> : <MoonStar size={100} />}
+                  {activity.number === "01" ? (
+                    <Gamepad2 size={92} />
+                  ) : activity.number === "02" ? (
+                    <MoonStar size={100} />
+                  ) : (
+                    <Camera size={100} />
+                  )}
                 </div>
               </article>
             );
           })}
         </div>
 
-
-
-        <div className="coming-soon">
-          <div className="coming-icon"><Music2 size={20} /></div>
-          <div>
-            <strong>Et si on prenait juste le temps ?</strong>
-            <p>Nos petites attentions et nos souvenirs arrivent bientôt.</p>
+        <div id="little-things" className="coming-soon">
+          <div className="coming-icon">
+            <Camera size={20} />
           </div>
-          <span className="coming-badge">Bientôt</span>
+
+          <div>
+            <strong>Un souvenir à garder pour toujours.</strong>
+            <p>
+              Préparez vos plus belles poses et créez une bande
+              photo à deux, même à distance.
+            </p>
+          </div>
+
+          <Link href="/photobooth" className="coming-badge">
+            Découvrir
+          </Link>
         </div>
       </section>
 
       <footer className="site-footer">
-        <Link href="/" className="footer-brand">oycea<span>.</span></Link>
-        <span className="footer-private"><Settings size={12} /> Paramètres</span>
+        <Link href="/" className="footer-brand">
+          oycea<span>.</span>
+        </Link>
+
+        <Link href="/settings" className="footer-private">
+          <Settings size={12} />
+          Paramètres
+        </Link>
       </footer>
     </main>
   );
