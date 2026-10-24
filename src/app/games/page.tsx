@@ -24,6 +24,7 @@ import FourInARowGame from "./FourInARowGame.tsx/page";
 import LinkedAdventureGame from "./LinkedAdventureGame.tsx/page";
 import LudoGame from "./LudoGame.tsx/page";
 import FindNumberGame from "./FindNumberGame.tsx/page";
+import DrawingMysteryGame from "./DrawingMysteryGame.tsx/page";
 
 type Activity =
   | "menu"
@@ -34,6 +35,7 @@ type Activity =
   | "ludo"
   | "forinarow"
   | "findnumber"
+  | "drawingmystery"
   | "defis"
 
 type Challenge = {
@@ -499,7 +501,14 @@ if (activity === "ludo") {
 if (activity === "findnumber") {
   return <FindNumberGame onBack={() => setActivity("menu")} />;
 }
-
+ 
+if (activity === "drawingmystery") {
+  return (
+    <DrawingMysteryGame
+      onBack={() => setActivity("menu")}
+    />
+  );
+}
 
 
   const myResponse = responses.find((row) => row.user_id === userId);
@@ -550,6 +559,15 @@ const games: GameCard[] = [
   description:
     "Choisissez chacun un code secret de quatre chiffres et tentez de découvrir celui de votre partenaire. Des indices vous aideront à trouver les bons chiffres et leur position.",
   icon: <Gamepad2 size={40} />,
+},
+
+{
+  key: "drawingmystery",
+  title: "Dessin Mystère",
+  short: "Dessine, devine et surprends ton partenaire.",
+  description:
+    "Un mot secret, un crayon et un temps limité. Dessine ce que tu vois et laisse ton partenaire deviner. À vous de jouer !",
+  icon: <Sparkles size={40} />,
 },
 
     {

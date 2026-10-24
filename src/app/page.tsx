@@ -36,7 +36,7 @@ const activities = [
   },
   {
     number: "03",
-    title: "Photo booth à deux",
+    title: "Photobooth à deux",
     description:
       "Des poses complices, un compte à rebours et nos souvenirs en photos.",
     label: "Prendre des photos",
@@ -235,23 +235,7 @@ export default function Home() {
           })}
         </div>
 
-        <div id="little-things" className="coming-soon">
-          <div className="coming-icon">
-            <Camera size={20} />
-          </div>
-
-          <div>
-            <strong>Un souvenir à garder pour toujours.</strong>
-            <p>
-              Préparez vos plus belles poses et créez une bande
-              photo à deux, même à distance.
-            </p>
-          </div>
-
-          <Link href="/photobooth" className="coming-badge">
-            Découvrir
-          </Link>
-        </div>
+       
       </section>
 
       <footer className="site-footer">
