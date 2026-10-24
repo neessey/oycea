@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import {
   ArrowLeft,
   Camera,
@@ -49,8 +50,9 @@ const rtcConfig: RTCConfiguration = {
   ],
 };
 
-export default function PhotoboothPage() {
+function PhotoboothContent() {
   const searchParams = useSearchParams();
+
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -1030,5 +1032,18 @@ export default function PhotoboothPage() {
         </footer>
       </div>
     </main>
+  );
+}
+export default function PhotoboothPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-[#fff9f7] text-[#49353d]">
+          Chargement du photobooth...
+        </main>
+      }
+    >
+      <PhotoboothContent />
+    </Suspense>
   );
 }
