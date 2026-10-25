@@ -264,6 +264,27 @@ export default function DefisPage() {
       void supabase.removeChannel(responseChannel);
     };
   }, [session?.id, supabase, loadSession, loadResponses]);
+  
+  useEffect(() => {
+  const channel = supabase
+    .channel("oycea-challenges-catalog")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "oycea_challenges",
+      },
+      () => {
+        void loadChallenges();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    void supabase.removeChannel(channel);
+  };
+}, [supabase, loadChallenges]);
 
   async function createSession(challenge: Challenge) {
     if (!userId || busy) return;

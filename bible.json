@@ -1,0 +1,513 @@
+
+{
+  "document": {
+    "name": "Oycea Bible du Projet",
+    "version": "1.0.0",
+    "language": "fr",
+    "purpose": "Document de référence central pour comprendre, développer, maintenir et faire évoluer Oycea sans devoir réexpliquer le projet à chaque conversation.",
+    "last_updated": "2026-10-25",
+    "status": "Document évolutif basé sur les décisions et informations connues. Les éléments techniques doivent être vérifiés dans le code actuel."
+  },
+  "project": {
+    "name": "Oycea",
+    "domain": "https://oycea.online",
+    "tagline": null,
+    "description": "Oycea est une plateforme web qui permet aux couples de créer leur espace privé, de partager des moments à deux, de jouer ensemble, de répondre à des questions et des défis et de rester connectés à distance.",
+    "vision": "Permettre aux couples de partager des expériences interactives et de renforcer leur complicité, même lorsqu'ils sont éloignés.",
+    "mission": "Rendre les moments partagés en couple simples, chaleureux, interactifs et accessibles.",
+    "target_audience": "Toute personne souhaitant créer un espace de couple sur la plateforme.",
+    "initial_concept": "Site privé conçu au départ pour deux personnes.",
+    "current_direction": "Plateforme ouverte au public permettant à chacun de s'inscrire et de créer ou rejoindre son propre espace de couple.",
+    "core_promise": "Créer un espace à deux, se retrouver, jouer et partager du temps ensemble, même à distance."
+  },
+  "product_principles": [
+    "La plateforme doit être accessible à tous les utilisateurs autorisés à s'inscrire.",
+    "Chaque couple doit disposer de son propre espace privé.",
+    "Les données d'un couple ne doivent pas être accessibles aux autres couples.",
+    "Les fonctionnalités existantes doivent être préservées lors des modifications.",
+    "Les jeux multijoueurs doivent fonctionner entre deux comptes distincts.",
+    "L'appel vocal doit pouvoir rester actif lorsque les utilisateurs changent de jeu ou de page.",
+    "L'expérience doit être cohérente sur mobile et ordinateur.",
+    "L'interface doit être simple, élégante, lisible et agréable à utiliser."
+  ],
+  "branding": {
+    "colors": {
+      "background": "#FFF9F7",
+      "primary": "#49353D",
+      "accent": "#C98298"
+    },
+    "visual_direction": [
+      "Minimaliste",
+      "Premium",
+      "Chaleureuse",
+      "Romantique sans surcharge",
+      "Aérée et lisible",
+      "Adaptée au mobile"
+    ],
+    "avoid": [
+      "Interfaces génériques",
+      "Design surchargé",
+      "Visuels artificiels",
+      "Emojis dans l'interface utilisateur",
+      "Placeholders inutiles lorsque de vrais visuels sont possibles"
+    ],
+    "logo": {
+      "exists": true,
+      "asset_paths_to_verify": [
+        "public/icons/oycea-192.png",
+        "public/icons/oycea-512.png"
+      ]
+    }
+  },
+  "technology": {
+    "frontend": {
+      "framework": "Next.js",
+      "routing": "App Router",
+      "language": "TypeScript",
+      "styling": "Tailwind CSS"
+    },
+    "backend": {
+      "platform": "Supabase",
+      "database": "PostgreSQL",
+      "authentication": "Supabase Auth",
+      "server_functions": "Supabase RPC functions"
+    },
+    "realtime_communication": {
+      "technology": "WebRTC",
+      "purpose": "Appels vocaux entre les utilisateurs",
+      "global_provider": "CallProvider",
+      "important_requirement": "Préserver la continuité de l'appel pendant la navigation entre les jeux."
+    },
+    "hosting": {
+      "frontend": "Vercel",
+      "domain": "https://oycea.online"
+    },
+    "pwa": {
+      "mentioned": true,
+      "manifest": "manifest.ts",
+      "metadata": "Présence et configuration à vérifier dans le dépôt actuel."
+    },
+    "database_choice": "Supabase est la solution privilégiée pour Oycea."
+  },
+  "features": {
+    "authentication": {
+      "provider": "Supabase Auth",
+      "email_confirmation": {
+        "enabled": true,
+        "status": "Fonctionnement confirmé par l'utilisateur après configuration SMTP Brevo.",
+        "smtp": {
+          "host": "smtp-relay.brevo.com",
+          "port": 587,
+          "username": "Identifiant SMTP fourni par Brevo",
+          "password": "Clé SMTP Brevo stockée dans la configuration sécurisée",
+          "sender_email": "contact@oycea.online",
+          "sender_verification": "Vérifier que l'adresse est validée dans Brevo et configurée comme expéditeur dans Supabase."
+        }
+      },
+      "post_confirmation_redirect": {
+        "goal": "Après confirmation de l'adresse e-mail, rediriger l'utilisateur vers la page appropriée de l'application avec une session authentifiée.",
+        "status": "À vérifier dans le code actuel.",
+        "requirements": [
+          "Utiliser emailRedirectTo dans le processus d'inscription.",
+          "Utiliser une route réelle de l'application.",
+          "Autoriser l'URL dans la configuration Redirect URLs de Supabase.",
+          "Configurer correctement le callback et la récupération de session.",
+          "Vérifier que l'utilisateur arrive sur la page attendue après confirmation."
+        ]
+      }
+    },
+    "couple_spaces": {
+      "description": "Espace privé partagé entre les membres d'un couple.",
+      "requirements": [
+        "Permettre à un utilisateur de créer un espace.",
+        "Permettre à son partenaire de rejoindre l'espace.",
+        "Associer les membres au bon espace de couple.",
+        "Protéger les données par l'authentification et les autorisations Supabase.",
+        "Empêcher l'accès aux espaces des autres couples."
+      ],
+      "exact_creation_flow": "À vérifier dans les routes et composants actuels."
+    },
+    "games": {
+      "description": "Jeux à deux, notamment en ligne.",
+      "games_mentioned": [
+        {
+          "name": "Dames",
+          "type": "dames",
+          "component": "CheckersGame",
+          "status": "Composant mentionné. Un problème de création en production a été signalé et doit être retesté."
+        },
+        {
+          "name": "Bowling",
+          "type": "bowling",
+          "status": "Type accepté dans une version inspectée de oycea_create_game. Fonctionnement complet à vérifier."
+        },
+        {
+          "name": "Puzzle",
+          "type": "puzzle",
+          "component": "PuzzleGame",
+          "status": "Composant mentionné. Personnalisation et options de pièces à vérifier."
+        },
+        {
+          "name": "Morpion",
+          "component": "MorpionGame",
+          "status": "Composant mentionné. Vérifier l'intégration multijoueur et le type enregistré en base."
+        },
+        {
+          "name": "4 en ligne",
+          "status": "La création a renvoyé HTTP 400 / P0001 avec le message « Type de jeu invalide » dans une version inspectée.",
+          "required_work": [
+            "Vérifier la logique frontend.",
+            "Mettre à jour la fonction SQL si le jeu est toujours souhaité.",
+            "Synchroniser les types autorisés entre frontend et backend.",
+            "Tester avec deux comptes distincts."
+          ]
+        },
+        {
+          "name": "Devine le nombre",
+          "rpc_mentioned": "oycea_findnumber_guess",
+          "status": "Une fonction RPC a été inspectée. Vérifier le flux complet et l'interface."
+        },
+        {
+          "name": "UNO",
+          "status": "Ajout demandé. Ne pas considérer le jeu comme terminé sans vérifier le code et réaliser un test complet."
+        }
+      ],
+      "puzzle_requirements": [
+        "Permettre l'utilisation de photos personnalisées.",
+        "Proposer un puzzle de 100 pièces.",
+        "Synchroniser l'état du jeu entre les participants.",
+        "Vérifier la persistance et la gestion des erreurs."
+      ],
+      "multiplayer_requirements": [
+        "Créer une partie.",
+        "Permettre à un second joueur de la rejoindre.",
+        "Synchroniser l'état de la partie.",
+        "Vérifier les tours de jeu.",
+        "Valider les actions côté serveur.",
+        "Gérer les erreurs et les déconnexions."
+      ]
+    },
+    "questions": {
+      "route_mentioned": "/games/questions",
+      "related_table": "oycea_questions",
+      "session_storage_key_mentioned": "oycea_challenge_session_id",
+      "status": "Fonctionnalité évoquée et travaillée. Vérifier le flux exact, la persistance des réponses et les permissions."
+    },
+    "challenges": {
+      "route_mentioned": "/games/defis",
+      "related_tables": [
+        "oycea_challenges",
+        "oycea_challenge_sessions",
+        "oycea_challenge_responses"
+      ],
+      "status": "Fonctionnalité évoquée et travaillée. Vérifier le fonctionnement complet dans la version actuelle."
+    },
+    "voice_calls": {
+      "technology": "WebRTC",
+      "provider_component": "CallProvider",
+      "primary_requirement": "L'appel doit rester actif lors du passage d'un jeu à un autre.",
+      "checks": [
+        "Vérifier où CallProvider est monté dans l'arborescence.",
+        "Éviter de détruire le contexte d'appel à chaque changement de route.",
+        "Tester les autorisations du microphone.",
+        "Tester les connexions entre deux comptes.",
+        "Vérifier les états de connexion et de déconnexion."
+      ]
+    },
+    "cinema": {
+      "description": "Expérience envisagée pour regarder du contenu ensemble.",
+      "status": "L'intégration des liens et des vidéos a rencontré des difficultés. Fonctionnalité à vérifier, non considérée comme terminée.",
+      "next_steps": [
+        "Clarifier le périmètre final.",
+        "Vérifier les sources de contenu autorisées et compatibles.",
+        "Tester l'intégration vidéo.",
+        "Tester la synchronisation de lecture entre les participants."
+      ]
+    },
+    "abandoned_features": [
+      {
+        "name": "Widget d'humeur et de message",
+        "status": "Abandonné explicitement.",
+        "rule": "Ne pas réintroduire ni proposer cette fonctionnalité sauf demande expresse."
+      }
+    ]
+  },
+  "routes": {
+    "known_or_mentioned": [
+      {
+        "path": "/",
+        "purpose": "Page d'accueil ou entrée du site.",
+        "verification": "Vérifier la version actuelle."
+      },
+      {
+        "path": "/games/defis",
+        "purpose": "Parcours des défis.",
+        "verification": "Vérifier le code actuel."
+      },
+      {
+        "path": "/games/questions",
+        "purpose": "Parcours des questions.",
+        "verification": "Vérifier le code actuel."
+      },
+      {
+        "path": "/login",
+        "purpose": "Route de connexion mentionnée comme exemple.",
+        "verification": "Ne pas supposer que cette route existe sans inspection."
+      }
+    ],
+    "not_fully_inventoried": [
+      "Inscription",
+      "Confirmation d'e-mail",
+      "Callback d'authentification",
+      "Création d'un espace de couple",
+      "Rejoindre un espace de couple",
+      "Tableau de bord",
+      "Pages individuelles des jeux",
+      "Administration"
+    ]
+  },
+  "components": [
+    {
+      "name": "CallProvider",
+      "purpose": "Gestion globale de l'expérience d'appel vocal.",
+      "status": "Mentionné dans le layout de l'application."
+    },
+    {
+      "name": "MorpionGame",
+      "purpose": "Interface du morpion.",
+      "status": "Mentionné dans le projet."
+    },
+    {
+      "name": "CheckersGame",
+      "purpose": "Interface du jeu de dames.",
+      "status": "Mentionné dans le projet."
+    },
+    {
+      "name": "PuzzleGame",
+      "purpose": "Interface du puzzle.",
+      "status": "Mentionné dans le projet."
+    }
+  ],
+  "browser_session_storage": [
+    {
+      "key": "oycea_game_id",
+      "purpose": "Identifiant temporaire de jeu mentionné dans le flux."
+    },
+    {
+      "key": "oycea_challenge_session_id",
+      "purpose": "Identifiant temporaire de session de défi mentionné dans le flux."
+    }
+  ],
+  "database": {
+    "provider": "Supabase PostgreSQL",
+    "tables_mentioned": [
+      {
+        "name": "oycea_couples",
+        "purpose": "Espaces de couple."
+      },
+      {
+        "name": "oycea_couple_members",
+        "purpose": "Membres des espaces de couple."
+      },
+      {
+        "name": "oycea_questions",
+        "purpose": "Questions proposées dans l'application."
+      },
+      {
+        "name": "oycea_games",
+        "purpose": "Catalogue ou configuration des jeux."
+      },
+      {
+        "name": "oycea_game_sessions",
+        "purpose": "Sessions de jeux en ligne."
+      },
+      {
+        "name": "oycea_challenges",
+        "purpose": "Défis proposés dans l'application."
+      },
+      {
+        "name": "oycea_challenge_sessions",
+        "purpose": "Sessions de défis."
+      },
+      {
+        "name": "oycea_challenge_responses",
+        "purpose": "Réponses aux défis."
+      }
+    ],
+    "rpc_functions_mentioned": [
+      {
+        "name": "oycea_create_game",
+        "signature": "oycea_create_game(p_game_type text, p_game_state jsonb)",
+        "purpose": "Créer une partie.",
+        "known_issue": "Dans la définition inspectée, les types autorisés comprenaient dames, bowling et puzzle. Le 4 en ligne a échoué car son type n'était pas autorisé.",
+        "important": "Inspecter la fonction actuelle avant toute modification."
+      },
+      {
+        "name": "oycea_findnumber_guess",
+        "signature": "oycea_findnumber_guess(p_session_id uuid, p_guess text)",
+        "purpose": "Traiter une tentative dans le jeu Devine le nombre.",
+        "important": "Vérifier la définition complète et le flux d'utilisation avant toute modification."
+      }
+    ],
+    "security_requirements": [
+      "Activer et vérifier les politiques RLS appropriées sur les tables exposées.",
+      "Vérifier l'identité de l'utilisateur connecté avec auth.uid() lorsque nécessaire.",
+      "Vérifier l'appartenance de l'utilisateur à l'espace ou à la session visée.",
+      "Ne jamais permettre à un utilisateur de modifier les données d'un autre couple.",
+      "Contrôler côté serveur les actions multijoueurs et les tours de jeu.",
+      "Examiner avec attention les fonctions SECURITY DEFINER.",
+      "Ne jamais désactiver les protections simplement pour contourner une erreur."
+    ],
+    "schema_status": "Liste partielle issue des échanges, pas un export complet du schéma de production."
+  },
+  "deployment_and_discovery": {
+    "hosting": "Vercel",
+    "domain": "https://oycea.online",
+    "google_search_console": {
+      "used": true,
+      "initial_status": "URL inconnue de Google, aucun sitemap détecté lors du diagnostic.",
+      "recommended_actions": [
+        "Vérifier l'existence de app/sitemap.ts ou src/app/sitemap.ts selon la structure réelle du projet.",
+        "Déployer les changements.",
+        "Vérifier https://oycea.online/sitemap.xml.",
+        "Soumettre sitemap.xml dans Google Search Console.",
+        "Inspecter l'URL de la page d'accueil.",
+        "Demander l'indexation.",
+        "Ne publier que des pages publiques dans le sitemap."
+      ],
+      "private_pages_excluded": [
+        "Espaces de couple",
+        "Pages de session privées",
+        "Pages d'administration",
+        "Contenu nécessitant une authentification"
+      ],
+      "note": "La soumission d'un sitemap ne garantit pas une indexation immédiate."
+    }
+  },
+  "known_issues": [
+    {
+      "issue": "Création de parties de dames en production",
+      "status": "Signalé après le déploiement.",
+      "investigation": [
+        "Vérifier les variables d'environnement Supabase sur Vercel.",
+        "Vérifier la session utilisateur.",
+        "Examiner la réponse RPC.",
+        "Inspecter les erreurs dans la console du navigateur et l'onglet Network.",
+        "Retester en production."
+      ]
+    },
+    {
+      "issue": "Type de jeu invalide pour le 4 en ligne",
+      "status": "Erreur HTTP 400 / P0001 observée.",
+      "cause_known": "Le type de jeu n'était pas autorisé dans la fonction oycea_create_game inspectée.",
+      "resolution": "À faire si le jeu reste dans le périmètre : mettre à jour la logique serveur et le frontend ensemble."
+    },
+    {
+      "issue": "Redirection après confirmation d'e-mail",
+      "status": "Objectif défini, implémentation actuelle à vérifier."
+    },
+    {
+      "issue": "Intégration cinéma",
+      "status": "Des difficultés d'intégration ont été rencontrées ; état final à vérifier."
+    },
+    {
+      "issue": "Indexation Google",
+      "status": "Sitemap et état actuel de l'indexation à vérifier après déploiement."
+    }
+  ],
+  "development_rules": [
+    "Inspecter la version actuelle d'un fichier avant de proposer de le remplacer.",
+    "Ne pas réécrire un fichier entier sans nécessité.",
+    "Préserver les fonctionnalités existantes.",
+    "Modifier ensemble le frontend et le SQL lorsqu'une fonctionnalité dépend des deux.",
+    "Maintenir une liste cohérente de types de jeux autorisés.",
+    "Tester les jeux multijoueurs avec deux comptes distincts.",
+    "Tester les flux complets, et pas uniquement l'affichage des écrans.",
+    "Distinguer les faits confirmés, les hypothèses et les tâches restantes.",
+    "Ne jamais placer de secret serveur dans le code frontend.",
+    "Considérer les variables NEXT_PUBLIC_ comme accessibles au navigateur.",
+    "Ne jamais inclure de pages privées dans le sitemap.",
+    "Fournir des instructions simples, étape par étape.",
+    "Privilégier les commandes Windows PowerShell lorsque des opérations locales sont nécessaires."
+  ],
+  "priorities": [
+    {
+      "priority": 1,
+      "task": "Inspecter le dépôt et établir l'inventaire exact des routes, composants, variables et configurations."
+    },
+    {
+      "priority": 2,
+      "task": "Tester inscription, confirmation d'e-mail, redirection et session authentifiée."
+    },
+    {
+      "priority": 3,
+      "task": "Tester la création et l'accès à un espace de couple avec deux comptes."
+    },
+    {
+      "priority": 4,
+      "task": "Vérifier les politiques RLS et les autorisations des espaces et sessions."
+    },
+    {
+      "priority": 5,
+      "task": "Diagnostiquer et tester la création des parties de dames en production."
+    },
+    {
+      "priority": 6,
+      "task": "Établir la liste définitive des jeux réellement pris en charge."
+    },
+    {
+      "priority": 7,
+      "task": "Terminer et tester les jeux retenus, notamment le 4 en ligne et UNO s'ils sont toujours prévus."
+    },
+    {
+      "priority": 8,
+      "task": "Vérifier les puzzles personnalisés et l'option 100 pièces."
+    },
+    {
+      "priority": 9,
+      "task": "Vérifier que l'appel vocal reste actif pendant la navigation entre les jeux."
+    },
+    {
+      "priority": 10,
+      "task": "Clarifier et valider le périmètre de l'expérience cinéma."
+    },
+    {
+      "priority": 11,
+      "task": "Vérifier le sitemap public et suivre l'indexation Google."
+    }
+  ],
+  "conversation_context": {
+    "preferred_work_style": [
+      "Explications simples",
+      "Instructions progressives",
+      "Solutions pratiques",
+      "Code adapté au projet existant",
+      "Vérification avant modification"
+    ],
+    "important_reminders": [
+      "Oycea est désormais destiné au grand public, pas uniquement à un couple prédéfini.",
+      "Supabase est préféré à Firebase pour ce projet.",
+      "La continuité de l'appel vocal entre les jeux est importante.",
+      "Le widget d'humeur/message a été abandonné.",
+      "Ne pas déclarer une fonctionnalité terminée sans preuve ou test."
+    ]
+  },
+  "maintenance": {
+    "update_this_document_when": [
+      "Une fonctionnalité est ajoutée ou retirée.",
+      "Une décision produit change.",
+      "Une table ou une fonction RPC est modifiée.",
+      "Une route ou un composant important change.",
+      "Un bug est résolu.",
+      "Une fonctionnalité est validée en production."
+    ],
+    "status_vocabulary": [
+      "confirmé",
+      "en cours",
+      "à vérifier",
+      "bloqué",
+      "abandonné"
+    ],
+    "final_note": "Cette bible résume les informations connues dans les échanges. Avant toute modification technique importante, vérifier le dépôt, les fonctions SQL, les politiques RLS et l'état réel de la production."
+  }
+}
