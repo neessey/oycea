@@ -53,30 +53,33 @@ export default function Home() {
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
-    const supabase = createClient();
-    let active = true;
+  const supabase = createClient();
+  let active = true;
 
-    async function checkUser() {
-      const { data, error } = await supabase.auth.getUser();
+  async function checkUser() {
+    const { data } = await supabase.auth.getUser();
 
-      if (!active) return;
+    if (!active) return;
 
-      if (error || !data.user) {
-        router.replace("/login");
-        return;
-      }
+    setEmail(data.user?.email ?? "");
+    setCheckingAuth(false);
+  }
 
-      setEmail(data.user.email ?? "");
-      setCheckingAuth(false);
-    }
+  void checkUser();
 
-    void checkUser();
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event, session) => {
+    if (!active) return;
 
-    return () => {
-      active = false;
-    };
-  }, [router]);
+    setEmail(session?.user?.email ?? "");
+  });
 
+  return () => {
+    active = false;
+    subscription.unsubscribe();
+  };
+}, []);
   async function handleLogout() {
     if (loggingOut) return;
 
@@ -114,33 +117,37 @@ export default function Home() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-8 md:flex">
-          <a className="nav-link active" href="#home">
-            Notre cocon
-          </a>
-          <a className="nav-link" href="#activities">
-            Nos rendez-vous
-          </a>
-          <a className="nav-link" href="#little-things">
-            Nos petits moments
-          </a>
-        </nav>
+       
+<div className="flex items-center gap-3">
+  {email ? (
+    <>
+      <div className="private-label">
+        <LockKeyhole size={13} />
+        <span>{email}</span>
+      </div>
 
-        <div className="flex items-center gap-3">
-          <div className="private-label">
-            <LockKeyhole size={13} />
-            <span>{email}</span>
-          </div>
+      <button
+        type="button"
+        onClick={handleLogout}
+        disabled={loggingOut}
+        className="nav-link"
+      >
+        {loggingOut ? "Déconnexion..." : "Déconnexion"}
+      </button>
+    </>
+  ) : (
+    <>
+      <Link href="/login" className="nav-link">
+        Se connecter
+      </Link>
 
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={loggingOut}
-            className="nav-link"
-          >
-            {loggingOut ? "Déconnexion..." : "Déconnexion"}
-          </button>
-        </div>
+      <Link href="/signup" className="primary-button">
+        Créer un compte
+        <ArrowRight size={17} />
+      </Link>
+    </>
+  )}
+</div>
       </header>
 
       <section id="home" className="hero-shell">

@@ -91,7 +91,7 @@ export default function DrawingMysteryGame({ onBack }: Props) {
   const [phase, setPhase] = useState<Phase>("ready");
   const [players, setPlayers] = useState(["Joueur 1", "Joueur 2"]);
   const [drawerIndex, setDrawerIndex] = useState(0);
-  const [word, setWord] = useState<Word>(() => pickWord());
+const [word, setWord] = useState<Word>(WORDS[0]);
   const [seconds, setSeconds] = useState(ROUND_SECONDS);
   const [color, setColor] = useState("#49353d");
   const [brushSize, setBrushSize] = useState(5);
@@ -180,20 +180,24 @@ export default function DrawingMysteryGame({ onBack }: Props) {
     ctx.restore();
   }, []);
 
-  function startRound(nextDrawerIndex = drawerIndex, previousWord?: string) {
-    setDrawerIndex(nextDrawerIndex);
-    setWord(pickWord(previousWord));
-    setSeconds(ROUND_SECONDS);
-    setGuess("");
-    setMessage("");
-    setGuessCount(0);
-    setColor("#49353d");
-    setBrushSize(5);
-    setIsEraser(false);
-    clearCanvas();
-    setPhase("playing");
-  }
+  function startRound(
+  nextDrawerIndex = drawerIndex,
+  previousWord?: string
+) {
+  setDrawerIndex(nextDrawerIndex);
+  setSeconds(ROUND_SECONDS);
+  setGuess("");
+  setMessage("");
+  setGuessCount(0);
+  setColor("#49353d");
+  setBrushSize(5);
+  setIsEraser(false);
+  clearCanvas();
+  setPhase("playing");
 
+  // Le choix aléatoire se fait lors d'une action utilisateur.
+  setWord(pickWord(previousWord));
+}
   function getPoint(event: React.PointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
@@ -280,7 +284,7 @@ export default function DrawingMysteryGame({ onBack }: Props) {
     setScores([0, 0]);
     setRound(1);
     setDrawerIndex(0);
-    setWord(pickWord());
+setWord(WORDS[0]);
     setSeconds(ROUND_SECONDS);
     setGuess("");
     setGuessCount(0);
