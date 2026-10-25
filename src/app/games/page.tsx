@@ -594,14 +594,7 @@ const games: GameCard[] = [
       "Alignez trois symboles avant votre partenaire. Un classique rapide pour se taquiner et rigoler, même à distance.",
     icon: <Gamepad2 size={40} />,
   },
-  {
-    key: "linked",
-    title: "Liés pour avancer",
-    short: "Franchir tous les obstacles ensemble.",
-    description:
-      "Deux personnages, cinq niveaux et une seule mission : franchir tous les obstacles ensemble. Si l'un tombe, vous recommencez à deux.",
-    icon: <Heart size={40} />,
-  },
+  
   {
     key: "ludo",
     title: "Ludo",
@@ -619,7 +612,14 @@ const games: GameCard[] = [
     icon: <Sparkles size={40} />,
     href: "/games/defis",
   },
- 
+ {
+    key: "linked",
+    title: "Liés pour avancer",
+    short: "Franchir tous les obstacles ensemble.",
+    description:
+      "Deux personnages, cinq niveaux et une seule mission : franchir tous les obstacles ensemble. Si l'un tombe, vous recommencez à deux.",
+    icon: <Heart size={40} />,
+  },
 ];
 
   return (
