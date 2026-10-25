@@ -44,7 +44,7 @@ export default function SignupPage() {
           options: {
             emailRedirectTo:
               typeof window !== "undefined"
-                ? `${window.location.origin}/`
+                ? `${window.location.origin}/login`
                 : undefined,
           },
         });
