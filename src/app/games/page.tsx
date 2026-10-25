@@ -25,6 +25,7 @@ import LinkedAdventureGame from "./LinkedAdventureGame.tsx/page";
 import LudoGame from "./LudoGame.tsx/page";
 import FindNumberGame from "./FindNumberGame.tsx/page";
 import DrawingMysteryGame from "./DrawingMysteryGame.tsx/page";
+import MemoryGame from "./MemoryGame.tsx/page";
 
 type Activity =
   | "menu"
@@ -34,6 +35,7 @@ type Activity =
   | "linked"
   | "ludo"
   | "forinarow"
+  | "memory"
   | "findnumber"
   | "drawingmystery"
   | "defis"
@@ -497,6 +499,13 @@ if (activity === "ludo") {
   return <LudoGame onBack={() => setActivity("menu")} />;
 }
 
+if (activity === "memory") {
+  return (
+    <MemoryGame
+      onBack={() => setActivity("menu")}
+    />
+  );
+}
 
 if (activity === "findnumber") {
   return <FindNumberGame onBack={() => setActivity("menu")} />;
@@ -568,6 +577,13 @@ const games: GameCard[] = [
   description:
     "Un mot secret, un crayon et un temps limité. Dessine ce que tu vois et laisse ton partenaire deviner. À vous de jouer !",
   icon: <Sparkles size={40} />,
+},
+{
+  key: "memory",
+  title: "Memory Classique",
+  description: "Retrouve les 12 paires de cartes et défie ton adversaire.",
+  short: "Retrouve les 12 paires de cartes et défie ton adversaire.",
+  icon: <Gamepad2 size={40} />,
 },
 
     {
